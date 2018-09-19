@@ -10,8 +10,8 @@ import torch.backends.cudnn as cudnn
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 
-from utils.log import setup_logging_and_results
-from vq_vae.auto_encoder import *
+from log import setup_logging_and_results
+from auto_encoder import *
 
 models = {'imagenet': {'vqvae': VQ_CVAE},
           'cifar10': {'vae': CVAE,
@@ -67,7 +67,7 @@ def main(args):
     training_parser = parser.add_argument_group('Training Parameters')
     training_parser.add_argument('--dataset', default='cifar10', choices=['mnist', 'cifar10', 'imagenet'],
                                  help='dataset to use: mnist | cifar10')
-    training_parser.add_argument('--data-dir', default='/media/ssd/Datasets',
+    training_parser.add_argument('--data-dir', default='datasets/',
                                  help='directory containing the dataset')
     training_parser.add_argument('--epochs', type=int, default=20, metavar='N',
                                  help='number of epochs to train (default: 10)')
