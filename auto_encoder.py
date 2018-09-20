@@ -257,6 +257,13 @@ class CVAE(AbstractAutoEncoder):
         # return mse
         return self.mse + self.kl_coef * self.kl_loss
 
+    def print_atom_hist(self, argmin):
+
+        argmin = argmin.detach().cpu().numpy()
+        unique, counts = np.unique(argmin, return_counts=True)
+        logging.info(counts)
+        logging.info(unique)
+
     def latest_losses(self):
         return {'mse': self.mse, 'kl': self.kl_loss}
 

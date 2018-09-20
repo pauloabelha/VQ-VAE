@@ -1,16 +1,13 @@
 import os
 import sys
 import time
-import logging
 import argparse
-
 import torch.utils.data
 from torch import optim
 import torch.backends.cudnn as cudnn
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
-
-from log import setup_logging_and_results
+from log2 import setup_logging_and_results
 from auto_encoder import *
 
 models = {'imagenet': {'vqvae': VQ_CVAE},
