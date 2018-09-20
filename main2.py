@@ -156,7 +156,6 @@ def train(epoch, model, train_loader, optimizer, cuda, log_interval, save_path, 
         for key in latest_losses:
             losses[key + '_train'] += float(latest_losses[key])
             epoch_losses[key + '_train'] += float(latest_losses[key])
-
         if batch_idx % log_interval == 0:
             for key in latest_losses:
                 losses[key + '_train'] /= log_interval
@@ -185,7 +184,8 @@ def train(epoch, model, train_loader, optimizer, cuda, log_interval, save_path, 
             epoch_losses[key] /= (len(train_loader.dataset) / train_loader.batch_size)
     loss_string = '\t'.join(['{}: {:.6f}'.format(k, v) for k, v in epoch_losses.items()])
     logging.info('====> Epoch: {} {}'.format(epoch, loss_string))
-    model.print_atom_hist(outputs[3])
+    if len(outputs) > 3:
+        model.print_atom_hist(outputs[3])
     return epoch_losses
 
 
