@@ -64,7 +64,7 @@ def main(args):
     training_parser = parser.add_argument_group('Training Parameters')
     training_parser.add_argument('--dataset', default='cifar10', choices=['mnist', 'cifar10', 'imagenet'],
                                  help='dataset to use: mnist | cifar10')
-    training_parser.add_argument('--data-dir', default='datasets/',
+    training_parser.add_argument('--data-dir', default='/home/paulo/datasets/',
                                  help='directory containing the dataset')
     training_parser.add_argument('--epochs', type=int, default=20, metavar='N',
                                  help='number of epochs to train (default: 10)')

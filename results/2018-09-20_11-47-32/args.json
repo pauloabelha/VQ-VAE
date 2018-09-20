@@ -1,0 +1,21 @@
+{
+    "batch_size": 128,
+    "commit_coef": null,
+    "cuda": false,
+    "data_dir": "datasets/",
+    "data_format": "json",
+    "dataset": "cifar10",
+    "epochs": 20,
+    "gpus": "0",
+    "hidden": null,
+    "k": null,
+    "kl_coef": null,
+    "log_interval": 10,
+    "lr": null,
+    "model": "vae",
+    "no_cuda": false,
+    "results_dir": "./results",
+    "save_name": "",
+    "seed": 1,
+    "vq_coef": null
+}
