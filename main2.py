@@ -8,7 +8,7 @@ import torch.backends.cudnn as cudnn
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 from log2 import setup_logging_and_results
-from auto_encoder import *
+from auto_encoder2 import *
 
 models = {'imagenet': {'vqvae': VQ_CVAE},
           'cifar10': {'vae': CVAE,
@@ -36,7 +36,7 @@ dataset_transforms = {'imagenet': transforms.Compose([transforms.Resize(128), tr
                                                      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
                       'mnist': transforms.ToTensor()}
 default_hyperparams = {'imagenet': {'lr': 2e-4, 'k': 512, 'hidden': 128},
-                       'cifar10': {'lr': 2e-4, 'k': 10, 'hidden': 256},
+                       'cifar10': {'lr': 2e-4, 'k': 10, 'hidden': 128},
                        'mnist': {'lr': 1e-4, 'k': 10, 'hidden': 64}}
 
 
@@ -102,7 +102,7 @@ def main(args):
         cudnn.benchmark = True
         torch.cuda.manual_seed(args.seed)
 
-    model = models[args.dataset][args.model](hidden, k=k, num_channels=num_channels)
+    model = models[args.dataset][args.model](d=hidden, k=k, num_channels=num_channels)
     if args.cuda:
         model.cuda()
 
@@ -138,6 +138,7 @@ def main(args):
 
 
 def train(epoch, model, train_loader, optimizer, cuda, log_interval, save_path, args):
+    print('Pytoch version: ' + torch.__version__)
     model.train()
     loss_dict = model.latest_losses()
     losses = {k + '_train': 0 for k, v in loss_dict.items()}
@@ -171,7 +172,6 @@ def train(epoch, model, train_loader, optimizer, cuda, log_interval, save_path, 
             # logging.info('z_q norm: {}'.format(float(torch.mean(torch.norm(outputs[2].contiguous().view(256,-1),2,0)))))
             for key in latest_losses:
                 losses[key + '_train'] = 0
-            save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_train_' + str(batch_idx))
         if batch_idx == (len(train_loader) - 1):
             save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_train_epoch')
         if args.dataset == 'imagenet' and batch_idx * len(data) > 25000:
