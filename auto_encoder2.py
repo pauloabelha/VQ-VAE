@@ -76,7 +76,7 @@ class VAE(nn.Module):
 
     def decode(self, z):
         h3 = self.relu(self.fc3(z))
-        return self.tanh(self.fc4(h3))
+        return F.tanh(self.fc4(h3))
 
     def forward(self, x):
         mu, logvar = self.encode(x.view(-1, 784))

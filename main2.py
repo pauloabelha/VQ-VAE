@@ -62,7 +62,7 @@ def main(args):
                               help='kl-divergence coefficient in loss')
 
     training_parser = parser.add_argument_group('Training Parameters')
-    training_parser.add_argument('--dataset', default='cifar10', choices=['mnist', 'cifar10', 'imagenet'],
+    training_parser.add_argument('--dataset', default='cifar10', choices=['ycb', 'mnist', 'cifar10', 'imagenet'],
                                  help='dataset to use: mnist | cifar10')
     training_parser.add_argument('--data-dir', default='/home/paulo/datasets/',
                                  help='directory containing the dataset')
@@ -102,7 +102,13 @@ def main(args):
         cudnn.benchmark = True
         torch.cuda.manual_seed(args.seed)
 
-    model = models[args.dataset][args.model](d=hidden, k=k, num_channels=num_channels)
+    models_dict = models[args.dataset]
+    if args.dataset == 'ycb':
+        model = CVAE(d=hidden, k=k, num_channels=num_channels)
+    elif args.dataset == 'imagenet':
+        model = models_dict['vqvae'](d=hidden, k=k, num_channels=num_channels)
+    else:
+        model = models_dict[args.model](d=hidden, k=k, num_channels=num_channels)
     if args.cuda:
         model.cuda()
 
@@ -138,7 +144,6 @@ def main(args):
 
 
 def train(epoch, model, train_loader, optimizer, cuda, log_interval, save_path, args):
-    print('Pytoch version: ' + torch.__version__)
     model.train()
     loss_dict = model.latest_losses()
     losses = {k + '_train': 0 for k, v in loss_dict.items()}
@@ -173,7 +178,7 @@ def train(epoch, model, train_loader, optimizer, cuda, log_interval, save_path, 
             for key in latest_losses:
                 losses[key + '_train'] = 0
         if batch_idx == (len(train_loader) - 1):
-            save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_train_epoch')
+            save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_train')
         if args.dataset == 'imagenet' and batch_idx * len(data) > 25000:
             break
 
