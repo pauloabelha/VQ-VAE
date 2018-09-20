@@ -128,11 +128,11 @@ def main(args):
 
     for epoch in range(1, args.epochs + 1):
         train_losses = train(epoch, model, train_loader, optimizer, args.cuda, args.log_interval, save_path, args)
-        test_losses = test_net(epoch, model, test_loader, args.cuda, save_path, args)
+        test_losses = test_net(epoch, model, test_loader, args.cuda, save_path, args, args.log_interval)
         results.add(epoch=epoch, **train_losses, **test_losses)
         for k in train_losses:
             key = k[:-6]
-            results.plot(x='epoch', y=[key + '_train', key + '_test'])
+            #results.plot(x='epoch', y=[key + '_train', key + '_test'])
         results.save()
         scheduler.step()
 
@@ -189,12 +189,13 @@ def train(epoch, model, train_loader, optimizer, cuda, log_interval, save_path, 
     return epoch_losses
 
 
-def test_net(epoch, model, test_loader, cuda, save_path, args):
+def test_net(epoch, model, test_loader, cuda, save_path, args, log_interval):
     model.eval()
     loss_dict = model.latest_losses()
     losses = {k + '_test': 0 for k, v in loss_dict.items()}
     i, data = None, None
     with torch.no_grad():
+        start_time = time.time()
         for i, (data, _) in enumerate(test_loader):
             if cuda:
                 data = data.cuda()
@@ -207,7 +208,16 @@ def test_net(epoch, model, test_loader, cuda, save_path, args):
                 save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_test')
             if args.dataset == 'imagenet' and i * len(data) > 1000:
                 break
-
+            if i % log_interval == 0:
+                loss_string = ' '.join(['{}: {:.6f}'.format(k, v) for k, v in losses.items()])
+                logging.info('Test Epoch: {epoch} [{batch:5d}/{total_batch} ({percent:2d}%)]   time:'
+                             ' {time:3.2f}   {loss}'
+                             .format(epoch=epoch, batch=i * len(data), total_batch=len(test_loader) * len(data),
+                                     percent=int(100. * i / len(test_loader)),
+                                     time=time.time() - start_time,
+                                     loss=loss_string))
+                start_time = time.time()
+            break
     for key in losses:
         if args.dataset != 'imagenet':
             losses[key] /= (len(test_loader.dataset) / test_loader.batch_size)
