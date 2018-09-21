@@ -30,18 +30,16 @@ dataset_test_args = {'imagenet': {},
                      'mnist': {'train': False, 'download': True},
 }
 
-ycb_res = (128, 128)
-ycb_num_channels = 3
 
-dataset_sizes = {'ycb': (3, ycb_res[0], ycb_res[1]),
-                 'imagenet': (3, 256, 224),
-                 'cifar10': (3, 32, 32),
-                 'mnist': (1, 28, 28)}
+dataset_sizes = {'ycb': (4, 3, 256, 256),
+                 'imagenet': (3, 3, 256, 224),
+                 'cifar10': (3, 3, 32, 32),
+                 'mnist': (1, 1, 28, 28)}
 
 
 
 dataset_transforms = {'ycb': transforms.Compose([transforms.ToTensor(),
-                                                     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
+                                                     transforms.Normalize((0.5, 0.5, 0.5, 0.5), (0.5, 0.5, 0.5, 0.5))]),
                       'imagenet': transforms.Compose([transforms.Resize(128), transforms.CenterCrop(128),
                                                       transforms.ToTensor(),
                                                       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
@@ -60,7 +58,7 @@ def main(args):
     model_parser = parser.add_argument_group('Model Parameters')
     model_parser.add_argument('--model', default='vae', choices=['vae', 'vqvae'],
                               help='autoencoder variant to use: vae | vqvae')
-    model_parser.add_argument('--batch-size', type=int, default=16, metavar='N',
+    model_parser.add_argument('--batch-size', type=int, default=4, metavar='N',
                               help='input batch size for training (default: 128)')
     model_parser.add_argument('--hidden', type=int, metavar='N',
                               help='number of hidden channels')
@@ -104,7 +102,8 @@ def main(args):
     lr = args.lr or default_hyperparams[args.dataset]['lr']
     k = args.k or default_hyperparams[args.dataset]['k']
     hidden = args.hidden or default_hyperparams[args.dataset]['hidden']
-    num_channels = dataset_sizes[args.dataset][0]
+    num_channels_in = dataset_sizes[args.dataset][0]
+    num_channels_out = dataset_sizes[args.dataset][1]
 
     results, save_path = setup_logging_and_results(args)
 
@@ -118,11 +117,11 @@ def main(args):
 
     models_dict = models[args.dataset]
     if args.dataset == 'ycb':
-        model = VQ_CVAE(d=hidden, k=k, num_channels=num_channels)
+        model = VQ_CVAE(d=hidden, k=k, num_channels_in=num_channels_in, num_channels_out=num_channels_out)
     elif args.dataset == 'imagenet':
-        model = models_dict['vqvae'](d=hidden, k=k, num_channels=num_channels)
+        model = models_dict['vqvae'](d=hidden, k=k, num_channels_in=num_channels_in, num_channels_out=num_channels_out)
     else:
-        model = models_dict[args.model](d=hidden, k=k, num_channels=num_channels)
+        model = models_dict[args.model](d=hidden, k=k, num_channels_in=num_channels_in, num_channels_out=num_channels_out)
     if args.cuda:
         model.cuda()
 
@@ -136,15 +135,17 @@ def main(args):
         dataset_train_dir = os.path.join(dataset_train_dir, 'train')
         dataset_test_dir = os.path.join(dataset_test_dir, 'val')
     if args.dataset == 'ycb':
-        train_loader = ycb_loader.DataLoader(args.data_dir + 'train/',
+        train_loader = ycb_loader.DataLoader(args.data_dir + 'train_small/',
+                                             noise_channel=True,
                                              batch_size=args.batch_size,
-                                             img_res=ycb_res,
-                                             num_channels=ycb_num_channels,
+                                             img_res=(dataset_sizes[args.dataset][2], dataset_sizes[args.dataset][3]),
+                                             num_channels=dataset_sizes[args.dataset][0],
                                              transform=dataset_transforms[args.dataset])
-        test_loader = ycb_loader.DataLoader(args.data_dir + 'test/',
+        test_loader = ycb_loader.DataLoader(args.data_dir + 'test_small/',
+                                            noise_channel=True,
                                             batch_size=args.batch_size,
-                                            img_res=ycb_res,
-                                            num_channels=ycb_num_channels,
+                                            img_res=(dataset_sizes[args.dataset][2], dataset_sizes[args.dataset][3]),
+                                            num_channels=dataset_sizes[args.dataset][0],
                                             transform=dataset_transforms[args.dataset],)
         print('Length of training dataset: {}'.format(len(train_loader.dataset)))
         print('Length of test dataset: {}'.format(len(test_loader.dataset)))
@@ -251,7 +252,9 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
             label_img = label_img.cuda()
         optimizer.zero_grad()
         outputs = model(data)
+
         #image = ((data[0].cpu().detach().numpy() + 0.5) * 255.).astype(int)
+        #image = image[0:3, :, :]
         #vis.plot_image(image)
         #vis.show()
 
@@ -287,7 +290,9 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
             #print('----------------------------------')
             #print('--------TRAIN-----------')
             #print(outputs[0][0])
-            save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_train_ycb')
+            data = data[:, 0:3, :, :]
+            outputs_save = outputs[0][:, 0:3, :, :]
+            save_reconstructed_images(data, epoch, outputs_save, save_path, 'reconstruction_train_ycb')
             #print('-----------------------')
         if args.dataset == 'imagenet' and batch_idx * len(data) > 25000:
             break
@@ -363,6 +368,8 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
             if i == 0:
                 #print('--------TEST-----------')
                 #print(outputs[0][0])
+                data = data[:, 0:3, :, :]
+                outputs_save = outputs[0][:, 0:3, :, :]
                 save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_test_ycb')
                 #print('-----------------------')
             if args.dataset == 'imagenet' and i * len(data) > 1000:

@@ -20,10 +20,12 @@ class YCB_Dataset(Dataset):
     mask_filepaths = {}
     with_imagenet_filepaths = {}
     pose_filepaths = {}
+    noise_channel = False
 
     num_types_of_file = 3 # colour, mask and depth
 
-    def __init__(self, root_folder, transform=None, img_res=(64, 64), num_channels=4):
+    def __init__(self, root_folder, noise_channel=False, transform=None, img_res=(64, 64), num_channels=4):
+        self.noise_channel = noise_channel
         self.transform = transform
         self.img_res = img_res
         self.root_folder = root_folder
@@ -77,38 +79,42 @@ class YCB_Dataset(Dataset):
             new_res=self.img_res)
 
         data_image = with_imagenet
-        if self.num_channels > 3:
+        if (not self.noise_channel) and self.num_channels > 3:
             depth = io_image.read_RGB_image(
                 self.depth_filepaths[self.file_idxs[idx]],
                 new_res=self.img_res)
             depth = np.reshape(depth, (depth.shape[0], depth.shape[1], 1))
             data_image = np.concatenate((data_image, depth), axis=-1).astype(float)
-        #RGBD_image = (np.divide(RGBD_image, 255.) * 2.) - 1.
-        #print(np.mean(RGBD_image))
 
-        #data_image = data_image.swapaxes(1, 2).swapaxes(0, 1)
-
-        #vis.plot_image(cropped_img)
+        #cropped_img_non_noisy = np.copy(cropped_img)
+        #cropped_img_noisy, noise_idxs = util.add_noise(cropped_img, 0.2)
+        data_image_noisy, noise_idxs = util.add_noise(data_image, 0.25)
+        #colour = np.concatenate((colour, noise_idxs), axis=-1).astype(float)
+        if self.transform:
+            data_image_noisy = self.transform(data_image_noisy).float()
+            noise_idxs = self.transform(noise_idxs).float()
+            #cropped_img_noisy = self.transform(cropped_img_noisy)
+            #cropped_img_non_noisy = self.transform(cropped_img_non_noisy)
+            colour = self.transform(colour).float()
+        data_image_noisy = torch.cat((data_image_noisy, noise_idxs), 0)
+        #vis.plot_image((data_image_noisy.numpy()[0:3, :, :] + 0.5) * 255)
+        #vis.show()
+        #vis.plot_image((colour.numpy() + 0.5) * 255)
         #vis.show()
 
-        cropped_img_non_noisy = np.copy(cropped_img)
-        cropped_img_noisy = util.add_noise(cropped_img, 0.2)
-        data_image = util.add_noise(data_image, 0.25)
-        if self.transform:
-            data_image = self.transform(data_image)
-            cropped_img_noisy = self.transform(cropped_img_noisy)
-            cropped_img_non_noisy = self.transform(cropped_img_non_noisy)
-            colour = self.transform(colour)
-
-        return data_image, (colour, pose)
+        return data_image_noisy.float(), (colour, pose)
 
     def __len__(self):
         return self.length
 
 
 
-def DataLoader(root_folder, transform=None, batch_size=4, img_res=(64, 64), num_channels=4):
-    dataset = YCB_Dataset(root_folder, transform=transform, img_res=img_res, num_channels=num_channels)
+def DataLoader(root_folder,  noise_channel=False, transform=None, batch_size=4, img_res=(64, 64), num_channels=4):
+    dataset = YCB_Dataset(root_folder,
+                          noise_channel=noise_channel,
+                          transform=transform,
+                          img_res=img_res,
+                          num_channels=num_channels)
     return torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,

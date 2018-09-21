@@ -357,11 +357,11 @@ class CVAE_YCB(AbstractAutoEncoder):
         return {'mse': self.mse, 'kl': self.kl_loss}
 
 class VQ_CVAE(nn.Module):
-    def __init__(self, d, k=10, bn=True, vq_coef=1, commit_coef=0.5, num_channels=3, **kwargs):
+    def __init__(self, d, k=10, bn=True, vq_coef=1, commit_coef=0.5, num_channels_in=3, num_channels_out=3, **kwargs):
         super(VQ_CVAE, self).__init__()
 
         self.encoder = nn.Sequential(
-            nn.Conv2d(num_channels, d, kernel_size=4, stride=2, padding=1),
+            nn.Conv2d(num_channels_in, d, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(d),
             nn.ReLU(inplace=True),
             nn.Conv2d(d, d, kernel_size=4, stride=2, padding=1),
@@ -379,7 +379,7 @@ class VQ_CVAE(nn.Module):
             nn.ConvTranspose2d(d, d, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(d),
             nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(d, num_channels, kernel_size=4, stride=2, padding=1),
+            nn.ConvTranspose2d(d, num_channels_out, kernel_size=4, stride=2, padding=1),
         )
         self.d = d
         self.emb = NearestEmbed(k, d)

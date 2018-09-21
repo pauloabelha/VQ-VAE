@@ -7,7 +7,7 @@ def add_noise(image, blackout_prob):
     keep_idxs = np.random.choice(2, image_size, p=[1 - blackout_prob, blackout_prob]).reshape((image.shape[0], image.shape[1])).astype(bool)
     image[keep_idxs, :] = 0
 
-    return image
+    return image, keep_idxs.astype(float).reshape(keep_idxs.shape[0], keep_idxs.shape[1], 1)
 
 def add_noise_torch(image_batch, blackout_prob):
     image_size = image_batch.shape[2] * image_batch.shape[3]
