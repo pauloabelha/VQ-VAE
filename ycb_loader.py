@@ -54,20 +54,29 @@ class YCB_Dataset(Dataset):
         self.file_idxs = list(self.file_idxs)
         self.length = len(self.file_idxs)
 
+    def crop_image(self, image, mask):
+        data_crop_nonzero = np.nonzero(mask)
+        crop_min = np.array([np.min(data_crop_nonzero[0]), np.min(data_crop_nonzero[1])])
+        crop_max = np.array([np.max(data_crop_nonzero[0]), np.max(data_crop_nonzero[1])])
+        cropped_img = image[crop_min[0]:crop_max[0], crop_min[1]:crop_max[1], :]
+        return cropped_img
 
     def __getitem__(self, idx):
+        idx = 3
         pose =  genfromtxt(self.pose_filepaths[self.file_idxs[idx]], delimiter=',')[1:]
         pose = torch.from_numpy(pose).float()
 
-        colour = io_image.read_RGB_image(
-            self.colour_filepaths[self.file_idxs[idx]],
-            new_res=self.img_res)
+        colour = io_image.read_RGB_image(self.colour_filepaths[self.file_idxs[idx]])
+        mask = io_image.read_RGB_image(self.mask_filepaths[self.file_idxs[idx]])
+        cropped_img = self.crop_image(colour, mask)
+        colour = io_image.change_res_image(colour, self.img_res)
+        mask = io_image.change_res_image(mask, self.img_res)
+        cropped_img = io_image.change_res_image(cropped_img, self.img_res)
+
         with_imagenet = io_image.read_RGB_image(
             self.with_imagenet_filepaths[self.file_idxs[idx]],
             new_res=self.img_res)
-        mask = io_image.read_RGB_image(
-            self.mask_filepaths[self.file_idxs[idx]],
-            new_res=self.img_res).astype(bool)
+
         data_image = with_imagenet
         if self.num_channels > 3:
             depth = io_image.read_RGB_image(
@@ -83,7 +92,7 @@ class YCB_Dataset(Dataset):
         if self.transform:
             data_image = self.transform(data_image)
 
-        return data_image, pose
+        return data_image, (cropped_img, pose)
 
     def __len__(self):
         return self.length
