@@ -9,8 +9,11 @@ from torchvision import datasets, transforms
 from torchvision.utils import save_image
 from log2 import setup_logging_and_results
 from auto_encoder2 import *
+import ycb_loader
+import visualize as vis
 
-models = {'imagenet': {'vqvae': VQ_CVAE},
+models = {'ycb': {'vqvae': VQ_CVAE},
+          'imagenet': {'vqvae': VQ_CVAE},
           'cifar10': {'vae': CVAE,
                       'vqvae': VQ_CVAE},
           'mnist': {'vae': VAE,
@@ -25,18 +28,28 @@ dataset_test_args = {'imagenet': {},
                      'cifar10': {'train': False, 'download': True},
                      'mnist': {'train': False, 'download': True},
 }
-dataset_sizes = {'imagenet': (3, 256, 224),
+
+ycb_res = (32, 32)
+ycb_num_channels = 3
+
+dataset_sizes = {'ycb': (3, ycb_res[0], ycb_res[1]),
+                 'imagenet': (3, 256, 224),
                  'cifar10': (3, 32, 32),
                  'mnist': (1, 28, 28)}
 
-dataset_transforms = {'imagenet': transforms.Compose([transforms.Resize(128), transforms.CenterCrop(128),
+
+
+dataset_transforms = {'ycb': transforms.Compose([transforms.ToTensor(),
+                                                     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
+                      'imagenet': transforms.Compose([transforms.Resize(128), transforms.CenterCrop(128),
                                                       transforms.ToTensor(),
                                                       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
                       'cifar10': transforms.Compose([transforms.ToTensor(),
                                                      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
                       'mnist': transforms.ToTensor()}
-default_hyperparams = {'imagenet': {'lr': 2e-4, 'k': 512, 'hidden': 128},
-                       'cifar10': {'lr': 2e-4, 'k': 10, 'hidden': 128},
+default_hyperparams = {'ycb': {'lr': 2e-4, 'k': 512, 'hidden': 128},
+                       'imagenet': {'lr': 2e-4, 'k': 512, 'hidden': 128},
+                       'cifar10': {'lr': 2e-4, 'k': 10, 'hidden': 256},
                        'mnist': {'lr': 1e-4, 'k': 10, 'hidden': 64}}
 
 
@@ -46,7 +59,7 @@ def main(args):
     model_parser = parser.add_argument_group('Model Parameters')
     model_parser.add_argument('--model', default='vae', choices=['vae', 'vqvae'],
                               help='autoencoder variant to use: vae | vqvae')
-    model_parser.add_argument('--batch-size', type=int, default=128, metavar='N',
+    model_parser.add_argument('--batch-size', type=int, default=16, metavar='N',
                               help='input batch size for training (default: 128)')
     model_parser.add_argument('--hidden', type=int, metavar='N',
                               help='number of hidden channels')
@@ -104,7 +117,7 @@ def main(args):
 
     models_dict = models[args.dataset]
     if args.dataset == 'ycb':
-        model = CVAE(d=hidden, k=k, num_channels=num_channels)
+        model = CVAE_YCB(d=hidden, k=k, num_channels=num_channels)
     elif args.dataset == 'imagenet':
         model = models_dict['vqvae'](d=hidden, k=k, num_channels=num_channels)
     else:
@@ -121,16 +134,30 @@ def main(args):
     if 'imagenet' in args.dataset:
         dataset_train_dir = os.path.join(dataset_train_dir, 'train')
         dataset_test_dir = os.path.join(dataset_test_dir, 'val')
-    train_loader = torch.utils.data.DataLoader(
-        datasets_classes[args.dataset](dataset_train_dir,
-                                       transform=dataset_transforms[args.dataset],
-                                       **dataset_train_args[args.dataset]),
-        batch_size=args.batch_size, shuffle=True, **kwargs)
-    test_loader = torch.utils.data.DataLoader(
-        datasets_classes[args.dataset](dataset_test_dir,
-                                       transform=dataset_transforms[args.dataset],
-                                       **dataset_test_args[args.dataset]),
-        batch_size=args.batch_size, shuffle=True, **kwargs)
+    if args.dataset == 'ycb':
+        train_loader = ycb_loader.DataLoader(args.data_dir + 'train/',
+                                             batch_size=args.batch_size,
+                                             img_res=ycb_res,
+                                             num_channels=ycb_num_channels,
+                                             transform=dataset_transforms[args.dataset])
+        test_loader = ycb_loader.DataLoader(args.data_dir + 'test/',
+                                            batch_size=args.batch_size,
+                                            img_res=ycb_res,
+                                            num_channels=ycb_num_channels,
+                                            transform=dataset_transforms[args.dataset],)
+        print('Length of training dataset: {}'.format(len(train_loader.dataset)))
+        print('Length of test dataset: {}'.format(len(test_loader.dataset)))
+    else:
+        train_loader = torch.utils.data.DataLoader(
+            datasets_classes[args.dataset](dataset_train_dir,
+                                           transform=dataset_transforms[args.dataset],
+                                           **dataset_train_args[args.dataset]),
+            batch_size=args.batch_size, shuffle=True, **kwargs)
+        test_loader = torch.utils.data.DataLoader(
+            datasets_classes[args.dataset](dataset_test_dir,
+                                           transform=dataset_transforms[args.dataset],
+                                           **dataset_test_args[args.dataset]),
+            batch_size=args.batch_size, shuffle=True, **kwargs)
 
     for epoch in range(1, args.epochs + 1):
         train_losses = train(epoch, model, train_loader, optimizer, args.cuda, args.log_interval, save_path, args)
@@ -151,10 +178,18 @@ def train(epoch, model, train_loader, optimizer, cuda, log_interval, save_path, 
     start_time = time.time()
     batch_idx, data = None, None
     for batch_idx, (data, _) in enumerate(train_loader):
+        #print(data[0])
         if cuda:
             data = data.cuda()
         optimizer.zero_grad()
         outputs = model(data)
+        #image = ((data[0].cpu().detach().numpy() + 0.5) * 255.).astype(int)
+        #vis.plot_image(image)
+        #vis.show()
+
+        #image_output = ((outputs[0][0].cpu().detach().numpy() + 0.5) * 255.).astype(int)
+        #vis.plot_image(image_output)
+        #vis.show()
         loss = model.loss_function(data, *outputs)
         loss.backward()
         optimizer.step()
@@ -178,6 +213,10 @@ def train(epoch, model, train_loader, optimizer, cuda, log_interval, save_path, 
             for key in latest_losses:
                 losses[key + '_train'] = 0
         if batch_idx == (len(train_loader) - 1):
+            print('----------------------------------')
+            print(np.mean(data.cpu().numpy()))
+            print(np.std(data.cpu().numpy()))
+            print('----------------------------------')
             save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_train')
         if args.dataset == 'imagenet' and batch_idx * len(data) > 25000:
             break
