@@ -160,8 +160,12 @@ def main(args):
             batch_size=args.batch_size, shuffle=True, **kwargs)
 
     for epoch in range(1, args.epochs + 1):
-        train_losses = train(epoch, model, train_loader, optimizer, args.cuda, args.log_interval, save_path, args)
-        test_losses = test_net(epoch, model, test_loader, args.cuda, save_path, args, args.log_interval)
+        if args.dataset == 'ycb':
+            train_losses = train_ycb(epoch, model, train_loader, optimizer, args.cuda, args.log_interval, save_path, args)
+            test_losses = test_net_ycb(epoch, model, test_loader, args.cuda, save_path, args, args.log_interval)
+        else:
+            train_losses = train(epoch, model, train_loader, optimizer, args.cuda, args.log_interval, save_path, args)
+            test_losses = test_net(epoch, model, test_loader, args.cuda, save_path, args, args.log_interval)
         results.add(epoch=epoch, **train_losses, **test_losses)
         for k in train_losses:
             key = k[:-6]
@@ -213,10 +217,73 @@ def train(epoch, model, train_loader, optimizer, cuda, log_interval, save_path, 
             for key in latest_losses:
                 losses[key + '_train'] = 0
         if batch_idx == (len(train_loader) - 1):
-            print('----------------------------------')
-            print(np.mean(data.cpu().numpy()))
-            print(np.std(data.cpu().numpy()))
-            print('----------------------------------')
+            #print('----------------------------------')
+            #print(np.mean(data.cpu().numpy()))
+            #print(np.std(data.cpu().numpy()))
+            #print('----------------------------------')
+            save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_train')
+        if args.dataset == 'imagenet' and batch_idx * len(data) > 25000:
+            break
+
+    for key in epoch_losses:
+        if args.dataset != 'imagenet':
+            epoch_losses[key] /= (len(train_loader.dataset) / train_loader.batch_size)
+        else:
+            epoch_losses[key] /= (len(train_loader.dataset) / train_loader.batch_size)
+    loss_string = '\t'.join(['{}: {:.6f}'.format(k, v) for k, v in epoch_losses.items()])
+    logging.info('====> Epoch: {} {}'.format(epoch, loss_string))
+    if len(outputs) > 3:
+        model.print_atom_hist(outputs[3])
+    return epoch_losses
+
+def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_path, args):
+    model.train()
+    loss_dict = model.latest_losses()
+    losses = {k + '_train': 0 for k, v in loss_dict.items()}
+    epoch_losses = {k + '_train': 0 for k, v in loss_dict.items()}
+    start_time = time.time()
+    batch_idx, data = None, None
+    for batch_idx, (data, labels) in enumerate(train_loader):
+        cropped_img, _ = labels
+        if cuda:
+            data = data.cuda()
+            cropped_img = cropped_img.cuda()
+        optimizer.zero_grad()
+        outputs = model(data)
+        #image = ((data[0].cpu().detach().numpy() + 0.5) * 255.).astype(int)
+        #vis.plot_image(image)
+        #vis.show()
+
+        #image_output = ((outputs[0][0].cpu().detach().numpy() + 0.5) * 255.).astype(int)
+        #vis.plot_image(image_output)
+        #vis.show()
+        loss = model.loss_function(cropped_img, *outputs)
+        loss.backward()
+        optimizer.step()
+        latest_losses = model.latest_losses()
+        for key in latest_losses:
+            losses[key + '_train'] += float(latest_losses[key])
+            epoch_losses[key + '_train'] += float(latest_losses[key])
+        if batch_idx % log_interval == 0:
+            for key in latest_losses:
+                losses[key + '_train'] /= log_interval
+            loss_string = ' '.join(['{}: {:.6f}'.format(k, v) for k, v in losses.items()])
+            logging.info('Train Epoch: {epoch} [{batch:5d}/{total_batch} ({percent:2d}%)]   time:'
+                         ' {time:3.2f}   {loss}'
+                         .format(epoch=epoch, batch=batch_idx * len(data), total_batch=len(train_loader) * len(data),
+                                 percent=int(100. * batch_idx / len(train_loader)),
+                                 time=time.time() - start_time,
+                                 loss=loss_string))
+            start_time = time.time()
+            # logging.info('z_e norm: {}'.format(float(torch.mean(torch.norm(outputs[1].contiguous().view(256,-1),2,0)))))
+            # logging.info('z_q norm: {}'.format(float(torch.mean(torch.norm(outputs[2].contiguous().view(256,-1),2,0)))))
+            for key in latest_losses:
+                losses[key + '_train'] = 0
+        if batch_idx == (len(train_loader) - 1):
+            #print('----------------------------------')
+            #print(np.mean(data.cpu().numpy()))
+            #print(np.std(data.cpu().numpy()))
+            #print('----------------------------------')
             save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_train')
         if args.dataset == 'imagenet' and batch_idx * len(data) > 25000:
             break
@@ -271,6 +338,47 @@ def test_net(epoch, model, test_loader, cuda, save_path, args, log_interval):
     logging.info('====> Test set losses: {}'.format(loss_string))
     return losses
 
+
+
+def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval):
+    model.eval()
+    loss_dict = model.latest_losses()
+    losses = {k + '_test': 0 for k, v in loss_dict.items()}
+    i, data = None, None
+    with torch.no_grad():
+        start_time = time.time()
+        for i, (data, labels) in enumerate(test_loader):
+            cropped_img, _ = labels
+            if cuda:
+                data = data.cuda()
+                cropped_img = cropped_img.cuda()
+            outputs = model(data)
+            model.loss_function(cropped_img, *outputs)
+            latest_losses = model.latest_losses()
+            for key in latest_losses:
+                losses[key + '_test'] += float(latest_losses[key])
+            if i == 0:
+                save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_test')
+            if args.dataset == 'imagenet' and i * len(data) > 1000:
+                break
+            if i % log_interval == 0:
+                loss_string = ' '.join(['{}: {:.6f}'.format(k, v) for k, v in losses.items()])
+                logging.info('Test Epoch: {epoch} [{batch:5d}/{total_batch} ({percent:2d}%)]   time:'
+                             ' {time:3.2f}   {loss}'
+                             .format(epoch=epoch, batch=i * len(data), total_batch=len(test_loader) * len(data),
+                                     percent=int(100. * i / len(test_loader)),
+                                     time=time.time() - start_time,
+                                     loss=loss_string))
+                start_time = time.time()
+            break
+    for key in losses:
+        if args.dataset != 'imagenet':
+            losses[key] /= (len(test_loader.dataset) / test_loader.batch_size)
+        else:
+            losses[key] /= (i * len(data))
+    loss_string = ' '.join(['{}: {:.6f}'.format(k, v) for k, v in losses.items()])
+    logging.info('====> Test set losses: {}'.format(loss_string))
+    return losses
 
 def save_reconstructed_images(data, epoch, outputs, save_path, name):
     size = data.size()

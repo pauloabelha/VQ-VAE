@@ -62,7 +62,6 @@ class YCB_Dataset(Dataset):
         return cropped_img
 
     def __getitem__(self, idx):
-        idx = 3
         pose =  genfromtxt(self.pose_filepaths[self.file_idxs[idx]], delimiter=',')[1:]
         pose = torch.from_numpy(pose).float()
 
@@ -91,6 +90,7 @@ class YCB_Dataset(Dataset):
 
         if self.transform:
             data_image = self.transform(data_image)
+            cropped_img = self.transform(cropped_img)
 
         return data_image, (cropped_img, pose)
 
