@@ -6,7 +6,7 @@ import io_image
 import numpy as np
 import visualize as vis
 from numpy import genfromtxt
-
+import util
 
 
 class YCB_Dataset(Dataset):
@@ -88,11 +88,12 @@ class YCB_Dataset(Dataset):
 
         #data_image = data_image.swapaxes(1, 2).swapaxes(0, 1)
 
+        cropped_img_data = util.add_noise(cropped_img, 0.25)
         if self.transform:
-            data_image = self.transform(data_image)
+            cropped_img_data = self.transform(cropped_img_data)
             cropped_img = self.transform(cropped_img)
 
-        return data_image, (cropped_img, pose)
+        return cropped_img_data, (cropped_img, pose)
 
     def __len__(self):
         return self.length

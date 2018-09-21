@@ -11,6 +11,7 @@ from log2 import setup_logging_and_results
 from auto_encoder2 import *
 import ycb_loader
 import visualize as vis
+import util
 
 models = {'ycb': {'vqvae': VQ_CVAE},
           'imagenet': {'vqvae': VQ_CVAE},
@@ -29,7 +30,7 @@ dataset_test_args = {'imagenet': {},
                      'mnist': {'train': False, 'download': True},
 }
 
-ycb_res = (32, 32)
+ycb_res = (128, 128)
 ycb_num_channels = 3
 
 dataset_sizes = {'ycb': (3, ycb_res[0], ycb_res[1]),
@@ -117,7 +118,7 @@ def main(args):
 
     models_dict = models[args.dataset]
     if args.dataset == 'ycb':
-        model = CVAE_YCB(d=hidden, k=k, num_channels=num_channels)
+        model = VQ_CVAE(d=hidden, k=k, num_channels=num_channels)
     elif args.dataset == 'imagenet':
         model = models_dict['vqvae'](d=hidden, k=k, num_channels=num_channels)
     else:
@@ -284,7 +285,10 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
             #print(np.mean(data.cpu().numpy()))
             #print(np.std(data.cpu().numpy()))
             #print('----------------------------------')
-            save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_train')
+            #print('--------TRAIN-----------')
+            #print(outputs[0][0])
+            save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_train_ycb')
+            #print('-----------------------')
         if args.dataset == 'imagenet' and batch_idx * len(data) > 25000:
             break
 
@@ -328,7 +332,6 @@ def test_net(epoch, model, test_loader, cuda, save_path, args, log_interval):
                                      time=time.time() - start_time,
                                      loss=loss_string))
                 start_time = time.time()
-            break
     for key in losses:
         if args.dataset != 'imagenet':
             losses[key] /= (len(test_loader.dataset) / test_loader.batch_size)
@@ -358,7 +361,10 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
             for key in latest_losses:
                 losses[key + '_test'] += float(latest_losses[key])
             if i == 0:
-                save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_test')
+                #print('--------TEST-----------')
+                #print(outputs[0][0])
+                save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_test_ycb')
+                #print('-----------------------')
             if args.dataset == 'imagenet' and i * len(data) > 1000:
                 break
             if i % log_interval == 0:
@@ -370,7 +376,6 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
                                      time=time.time() - start_time,
                                      loss=loss_string))
                 start_time = time.time()
-            break
     for key in losses:
         if args.dataset != 'imagenet':
             losses[key] /= (len(test_loader.dataset) / test_loader.batch_size)
