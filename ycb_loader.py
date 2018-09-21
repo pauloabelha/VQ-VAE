@@ -88,12 +88,19 @@ class YCB_Dataset(Dataset):
 
         #data_image = data_image.swapaxes(1, 2).swapaxes(0, 1)
 
-        cropped_img_data = util.add_noise(cropped_img, 0.25)
-        if self.transform:
-            cropped_img_data = self.transform(cropped_img_data)
-            cropped_img = self.transform(cropped_img)
+        #vis.plot_image(cropped_img)
+        #vis.show()
 
-        return cropped_img_data, (cropped_img, pose)
+        cropped_img_non_noisy = np.copy(cropped_img)
+        cropped_img_noisy = util.add_noise(cropped_img, 0.2)
+        data_image = util.add_noise(data_image, 0.25)
+        if self.transform:
+            data_image = self.transform(data_image)
+            cropped_img_noisy = self.transform(cropped_img_noisy)
+            cropped_img_non_noisy = self.transform(cropped_img_non_noisy)
+            colour = self.transform(colour)
+
+        return data_image, (colour, pose)
 
     def __len__(self):
         return self.length

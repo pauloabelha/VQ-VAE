@@ -245,20 +245,20 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
     start_time = time.time()
     batch_idx, data = None, None
     for batch_idx, (data, labels) in enumerate(train_loader):
-        cropped_img, _ = labels
+        label_img, _ = labels
         if cuda:
             data = data.cuda()
-            cropped_img = cropped_img.cuda()
+            label_img = label_img.cuda()
         optimizer.zero_grad()
         outputs = model(data)
         #image = ((data[0].cpu().detach().numpy() + 0.5) * 255.).astype(int)
         #vis.plot_image(image)
         #vis.show()
 
-        #image_output = ((outputs[0][0].cpu().detach().numpy() + 0.5) * 255.).astype(int)
-        #vis.plot_image(image_output)
+        #label_img = ((label_img[0][0].cpu().detach().numpy() + 0.5) * 255.).astype(int)
+        #vis.plot_image(label_img)
         #vis.show()
-        loss = model.loss_function(cropped_img, *outputs)
+        loss = model.loss_function(label_img, *outputs)
         loss.backward()
         optimizer.step()
         latest_losses = model.latest_losses()
@@ -351,12 +351,12 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
     with torch.no_grad():
         start_time = time.time()
         for i, (data, labels) in enumerate(test_loader):
-            cropped_img, _ = labels
+            label_img, _ = labels
             if cuda:
                 data = data.cuda()
-                cropped_img = cropped_img.cuda()
+                label_img = label_img.cuda()
             outputs = model(data)
-            model.loss_function(cropped_img, *outputs)
+            model.loss_function(label_img, *outputs)
             latest_losses = model.latest_losses()
             for key in latest_losses:
                 losses[key + '_test'] += float(latest_losses[key])
