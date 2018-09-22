@@ -30,8 +30,8 @@ dataset_test_args = {'imagenet': {},
                      'mnist': {'train': False, 'download': True},
 }
 
-ycb_train = 'train/'
-ycb_test = 'test/'
+ycb_train = 'train_small/'
+ycb_test = 'test_small/'
 
 dataset_sizes = {'ycb': (4, 3, 640, 480),
                  'imagenet': (3, 3, 256, 224),
@@ -60,7 +60,7 @@ def main(args):
     model_parser = parser.add_argument_group('Model Parameters')
     model_parser.add_argument('--model', default='vae', choices=['vae', 'vqvae'],
                               help='autoencoder variant to use: vae | vqvae')
-    model_parser.add_argument('--batch-size', type=int, default=128, metavar='N',
+    model_parser.add_argument('--batch-size', type=int, default=16, metavar='N',
                               help='input batch size for training (default: 128)')
     model_parser.add_argument('--max-mem-batch_size', type=int, default=1, metavar='N',
                               help='input max memory batch size for training (default: 1)')
@@ -108,6 +108,8 @@ def main(args):
     hidden = args.hidden or default_hyperparams[args.dataset]['hidden']
     num_channels_in = dataset_sizes[args.dataset][0]
     num_channels_out = dataset_sizes[args.dataset][1]
+
+    args.log_num_images_to_save = 8
 
     results, save_path = setup_logging_and_results(args)
 
@@ -250,7 +252,11 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
     epoch_losses = {k + '_train': 0 for k, v in loss_dict.items()}
     start_time = time.time()
     batch_idx, data = None, None
+    data_to_save = []
+    outputs_to_save = []
     for batch_idx, (data, labels) in enumerate(train_loader):
+        if len(data_to_save) <= args.log_num_images_to_save:
+            data_to_save.append(data[0, 0:3, :, :])
         if batch_idx == 0:
             logging.info('Processing first batch '
                          'with max memory batch size of {}'
@@ -265,6 +271,8 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
             label_img = label_img.cuda()
 
         outputs = model(data)
+        if len(outputs_to_save) <= args.log_num_images_to_save:
+            outputs_to_save.append(outputs[0][0, 0:3, :, :])
 
         #image = ((data[0].cpu().detach().numpy() + 0.5) * 255.).astype(int)
         #image = image[0:3, :, :]
@@ -310,9 +318,15 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
             # print('----------------------------------')
             # print('--------TRAIN-----------')
             # print(outputs[0][0])
-            data = data[:, 0:3, :, :]
-            outputs_save = outputs[0][:, 0:3, :, :]
-            save_reconstructed_images(data, epoch, outputs_save, save_path, 'reconstruction_train_ycb')
+            data = data[:, 0:3, :, :].permute(0, 1, 3, 2)
+            output_to_save = outputs[0][:, 0:3, :, :].permute(0, 1, 3, 2)
+            save_reconstructed_images(data, epoch, output_to_save, save_path, 'reconstruction_train_ycb')
+            data_to_save = torch.cat(data_to_save).permute(0, 1, 3, 2)
+            outputs_to_save = torch.cat(outputs_to_save).permute(0, 1, 3, 2)
+            save_reconstructed_images(data_to_save, epoch, outputs_to_save, save_path, 'reconstruction_train_ycb_batch')
+
+            data_to_save = []
+            outputs_to_save = []
             # print('-----------------------')
 
 
@@ -385,12 +399,12 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
             latest_losses = model.latest_losses()
             for key in latest_losses:
                 losses[key + '_test'] += float(latest_losses[key])
-            if i == 0:
+            if i < args.log_num_images_to_save:
                 #print('--------TEST-----------')
                 #print(outputs[0][0])
-                data = data[:, 0:3, :, :]
-                outputs_save = outputs[0][:, 0:3, :, :]
-                save_reconstructed_images(data, epoch, outputs[0], save_path, 'reconstruction_test_ycb')
+                data = data[:, 0:3, :, :].permute(0, 1, 3, 2)
+                outputs_save = outputs[0][:, 0:3, :, :].permute(0, 1, 3, 2)
+                save_reconstructed_images(data, epoch, outputs_save[0], save_path, 'reconstruction_test_ycb')
                 #print('-----------------------')
             if args.dataset == 'imagenet' and i * len(data) > 1000:
                 break
