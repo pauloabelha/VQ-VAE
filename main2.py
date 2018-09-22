@@ -32,7 +32,6 @@ dataset_test_args = {'imagenet': {},
 
 ycb_train = 'train/'
 ycb_test = 'test/'
-default_batch_size = 1
 
 dataset_sizes = {'ycb': (4, 3, 640, 480),
                  'imagenet': (3, 3, 256, 224),
@@ -61,8 +60,10 @@ def main(args):
     model_parser = parser.add_argument_group('Model Parameters')
     model_parser.add_argument('--model', default='vae', choices=['vae', 'vqvae'],
                               help='autoencoder variant to use: vae | vqvae')
-    model_parser.add_argument('--batch-size', type=int, default=default_batch_size, metavar='N',
+    model_parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                               help='input batch size for training (default: 128)')
+    model_parser.add_argument('--max-mem-batch_size', type=int, default=1, metavar='N',
+                              help='input max memory batch size for training (default: 1)')
     model_parser.add_argument('--hidden', type=int, metavar='N',
                               help='number of hidden channels')
     model_parser.add_argument('-k', '--dict-size', type=int, dest='k', metavar='K',
@@ -140,13 +141,13 @@ def main(args):
     if args.dataset == 'ycb':
         train_loader = ycb_loader.DataLoader(args.data_dir + ycb_train,
                                              noise_channel=True,
-                                             batch_size=args.batch_size,
+                                             batch_size=args.max_mem_batch_size,
                                              img_res=(dataset_sizes[args.dataset][2], dataset_sizes[args.dataset][3]),
                                              num_channels=dataset_sizes[args.dataset][0],
                                              transform=dataset_transforms[args.dataset])
         test_loader = ycb_loader.DataLoader(args.data_dir + ycb_test,
                                             noise_channel=True,
-                                            batch_size=args.batch_size,
+                                            batch_size=args.max_mem_batch_size,
                                             img_res=(dataset_sizes[args.dataset][2], dataset_sizes[args.dataset][3]),
                                             num_channels=dataset_sizes[args.dataset][0],
                                             transform=dataset_transforms[args.dataset],)
@@ -250,11 +251,19 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
     start_time = time.time()
     batch_idx, data = None, None
     for batch_idx, (data, labels) in enumerate(train_loader):
+        if batch_idx == 0:
+            logging.info('Processing first batch '
+                         'with max memory batch size of {}'
+                         ' for a batch size of {} '
+                         'and logging info every {} batches'.
+                         format(args.max_mem_batch_size,
+                                args.batch_size,
+                                args.log_interval))
         label_img, _ = labels
         if cuda:
             data = data.cuda()
             label_img = label_img.cuda()
-        optimizer.zero_grad()
+
         outputs = model(data)
 
         #image = ((data[0].cpu().detach().numpy() + 0.5) * 255.).astype(int)
@@ -267,39 +276,45 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
         #vis.show()
         loss = model.loss_function(label_img, *outputs)
         loss.backward()
-        optimizer.step()
-        latest_losses = model.latest_losses()
-        for key in latest_losses:
-            losses[key + '_train'] += float(latest_losses[key])
-            epoch_losses[key + '_train'] += float(latest_losses[key])
-        if batch_idx % log_interval == 0:
-            for key in latest_losses:
-                losses[key + '_train'] /= log_interval
-            loss_string = ' '.join(['{}: {:.6f}'.format(k, v) for k, v in losses.items()])
-            logging.info('Train Epoch: {epoch} [{batch:5d}/{total_batch} ({percent:2d}%)]   time:'
-                         ' {time:3.2f}   {loss}'
-                         .format(epoch=epoch, batch=batch_idx * len(data), total_batch=len(train_loader) * len(data),
-                                 percent=int(100. * batch_idx / len(train_loader)),
-                                 time=time.time() - start_time,
-                                 loss=loss_string))
-            start_time = time.time()
-            # logging.info('z_e norm: {}'.format(float(torch.mean(torch.norm(outputs[1].contiguous().view(256,-1),2,0)))))
-            # logging.info('z_q norm: {}'.format(float(torch.mean(torch.norm(outputs[2].contiguous().view(256,-1),2,0)))))
-            for key in latest_losses:
-                losses[key + '_train'] = 0
+
+        batch_num = (batch_idx + 1) * args.max_mem_batch_size
+        if batch_num > 0 and batch_num % args.batch_size == 0:
+            optimizer.step()
+            optimizer.zero_grad()
+            num_processed_batches = int((batch_num / args.batch_size))
+            if num_processed_batches % log_interval == 0:
+                latest_losses = model.latest_losses()
+                for key in latest_losses:
+                    losses[key + '_train'] += float(latest_losses[key])
+                    epoch_losses[key + '_train'] += float(latest_losses[key])
+                for key in latest_losses:
+                    losses[key + '_train'] /= log_interval
+                loss_string = ' '.join(['{}: {:.6f}'.format(k, v) for k, v in losses.items()])
+                logging.info('Train Epoch: {epoch} [{batch:5d}/{total_batch} ({percent:2d}%)]   time:'
+                             ' {time:3.2f}   {loss}'
+                             .format(epoch=epoch, batch=(batch_idx + 1) * len(data),
+                                     total_batch=len(train_loader) * len(data),
+                                     percent=int(100. * (batch_idx + 1) / len(train_loader)),
+                                     time=time.time() - start_time,
+                                     loss=loss_string))
+                start_time = time.time()
+                # logging.info('z_e norm: {}'.format(float(torch.mean(torch.norm(outputs[1].contiguous().view(256,-1),2,0)))))
+                # logging.info('z_q norm: {}'.format(float(torch.mean(torch.norm(outputs[2].contiguous().view(256,-1),2,0)))))
+                for key in latest_losses:
+                    losses[key + '_train'] = 0
+
         if batch_idx == (len(train_loader) - 1):
-            #print('----------------------------------')
-            #print(np.mean(data.cpu().numpy()))
-            #print(np.std(data.cpu().numpy()))
-            #print('----------------------------------')
-            #print('--------TRAIN-----------')
-            #print(outputs[0][0])
+            # print('----------------------------------')
+            # print(np.mean(data.cpu().numpy()))
+            # print(np.std(data.cpu().numpy()))
+            # print('----------------------------------')
+            # print('--------TRAIN-----------')
+            # print(outputs[0][0])
             data = data[:, 0:3, :, :]
             outputs_save = outputs[0][:, 0:3, :, :]
             save_reconstructed_images(data, epoch, outputs_save, save_path, 'reconstruction_train_ycb')
-            #print('-----------------------')
-        if args.dataset == 'imagenet' and batch_idx * len(data) > 25000:
-            break
+            # print('-----------------------')
+
 
     for key in epoch_losses:
         if args.dataset != 'imagenet':
