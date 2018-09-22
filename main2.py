@@ -287,6 +287,9 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
 
         batch_num = (batch_idx + 1) * args.max_mem_batch_size
         if batch_num > 0 and batch_num % args.batch_size == 0:
+            if not batch_idx == (len(train_loader) - 1):
+                data_to_save = []
+                outputs_to_save = []
             optimizer.step()
             optimizer.zero_grad()
             num_processed_batches = int((batch_num / args.batch_size))
@@ -318,11 +321,11 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
             # print('----------------------------------')
             # print('--------TRAIN-----------')
             # print(outputs[0][0])
-            data = data[:, 0:3, :, :].permute(0, 1, 3, 2)
-            output_to_save = outputs[0][:, 0:3, :, :].permute(0, 1, 3, 2)
-            save_reconstructed_images(data, epoch, output_to_save, save_path, 'reconstruction_train_ycb')
-            data_to_save = torch.cat(data_to_save).permute(0, 1, 3, 2)
-            outputs_to_save = torch.cat(outputs_to_save).permute(0, 1, 3, 2)
+            #data = data[:, 0:3, :, :].permute(0, 1, 3, 2)
+            #output_to_save = outputs[0][:, 0:3, :, :].permute(0, 1, 3, 2)
+            #save_reconstructed_images(data, epoch, output_to_save, save_path, 'reconstruction_train_ycb')
+            data_to_save = torch.stack(data_to_save).permute(0, 1, 3, 2).cpu()
+            outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu()
             save_reconstructed_images(data_to_save, epoch, outputs_to_save, save_path, 'reconstruction_train_ycb_batch')
 
             data_to_save = []
@@ -383,32 +386,43 @@ def test_net(epoch, model, test_loader, cuda, save_path, args, log_interval):
 
 
 def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval):
+    not_saved_test_images = True
     model.eval()
     loss_dict = model.latest_losses()
     losses = {k + '_test': 0 for k, v in loss_dict.items()}
     i, data = None, None
+    data_to_save = []
+    outputs_to_save = []
     with torch.no_grad():
         start_time = time.time()
         for i, (data, labels) in enumerate(test_loader):
+            if len(data_to_save) <= args.log_num_images_to_save:
+                data_to_save.append(data[0, 0:3, :, :])
             label_img, _ = labels
             if cuda:
                 data = data.cuda()
                 label_img = label_img.cuda()
             outputs = model(data)
+
+            if len(outputs_to_save) <= args.log_num_images_to_save:
+                outputs_to_save.append(outputs[0][0, 0:3, :, :])
+
             model.loss_function(label_img, *outputs)
             latest_losses = model.latest_losses()
             for key in latest_losses:
                 losses[key + '_test'] += float(latest_losses[key])
-            if i < args.log_num_images_to_save:
-                #print('--------TEST-----------')
-                #print(outputs[0][0])
-                data = data[:, 0:3, :, :].permute(0, 1, 3, 2)
-                outputs_save = outputs[0][:, 0:3, :, :].permute(0, 1, 3, 2)
-                save_reconstructed_images(data, epoch, outputs_save[0], save_path, 'reconstruction_test_ycb')
-                #print('-----------------------')
+            batch_num = (i + 1) * args.max_mem_batch_size
+            if not_saved_test_images and batch_num > args.log_num_images_to_save:
+                data_to_save = torch.stack(data_to_save).permute(0, 1, 3, 2).cpu()
+                outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu()
+                save_reconstructed_images(data_to_save, epoch, outputs_to_save, save_path,
+                                      'reconstruction_test_ycb_batch')
+                data_to_save = []
+                outputs_to_save = []
+                not_saved_test_images = False
             if args.dataset == 'imagenet' and i * len(data) > 1000:
                 break
-            if i % log_interval == 0:
+            if batch_num > 0 and batch_num % args.batch_size == 0:
                 loss_string = ' '.join(['{}: {:.6f}'.format(k, v) for k, v in losses.items()])
                 logging.info('Test Epoch: {epoch} [{batch:5d}/{total_batch} ({percent:2d}%)]   time:'
                              ' {time:3.2f}   {loss}'
