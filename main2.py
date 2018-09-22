@@ -30,8 +30,11 @@ dataset_test_args = {'imagenet': {},
                      'mnist': {'train': False, 'download': True},
 }
 
+ycb_train = 'train/'
+ycb_test = 'test/'
+default_batch_size = 1
 
-dataset_sizes = {'ycb': (4, 3, 256, 256),
+dataset_sizes = {'ycb': (4, 3, 640, 480),
                  'imagenet': (3, 3, 256, 224),
                  'cifar10': (3, 3, 32, 32),
                  'mnist': (1, 1, 28, 28)}
@@ -46,7 +49,7 @@ dataset_transforms = {'ycb': transforms.Compose([transforms.ToTensor(),
                       'cifar10': transforms.Compose([transforms.ToTensor(),
                                                      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
                       'mnist': transforms.ToTensor()}
-default_hyperparams = {'ycb': {'lr': 2e-4, 'k': 512, 'hidden': 128},
+default_hyperparams = {'ycb': {'lr': 2e-4, 'k': 256, 'hidden': 128},
                        'imagenet': {'lr': 2e-4, 'k': 512, 'hidden': 128},
                        'cifar10': {'lr': 2e-4, 'k': 10, 'hidden': 256},
                        'mnist': {'lr': 1e-4, 'k': 10, 'hidden': 64}}
@@ -58,7 +61,7 @@ def main(args):
     model_parser = parser.add_argument_group('Model Parameters')
     model_parser.add_argument('--model', default='vae', choices=['vae', 'vqvae'],
                               help='autoencoder variant to use: vae | vqvae')
-    model_parser.add_argument('--batch-size', type=int, default=4, metavar='N',
+    model_parser.add_argument('--batch-size', type=int, default=default_batch_size, metavar='N',
                               help='input batch size for training (default: 128)')
     model_parser.add_argument('--hidden', type=int, metavar='N',
                               help='number of hidden channels')
@@ -135,13 +138,13 @@ def main(args):
         dataset_train_dir = os.path.join(dataset_train_dir, 'train')
         dataset_test_dir = os.path.join(dataset_test_dir, 'val')
     if args.dataset == 'ycb':
-        train_loader = ycb_loader.DataLoader(args.data_dir + 'train_small/',
+        train_loader = ycb_loader.DataLoader(args.data_dir + ycb_train,
                                              noise_channel=True,
                                              batch_size=args.batch_size,
                                              img_res=(dataset_sizes[args.dataset][2], dataset_sizes[args.dataset][3]),
                                              num_channels=dataset_sizes[args.dataset][0],
                                              transform=dataset_transforms[args.dataset])
-        test_loader = ycb_loader.DataLoader(args.data_dir + 'test_small/',
+        test_loader = ycb_loader.DataLoader(args.data_dir + ycb_test,
                                             noise_channel=True,
                                             batch_size=args.batch_size,
                                             img_res=(dataset_sizes[args.dataset][2], dataset_sizes[args.dataset][3]),
@@ -238,6 +241,7 @@ def train(epoch, model, train_loader, optimizer, cuda, log_interval, save_path, 
         model.print_atom_hist(outputs[3])
     return epoch_losses
 
+
 def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_path, args):
     model.train()
     loss_dict = model.latest_losses()
@@ -307,6 +311,7 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
     if len(outputs) > 3:
         model.print_atom_hist(outputs[3])
     return epoch_losses
+
 
 
 def test_net(epoch, model, test_loader, cuda, save_path, args, log_interval):

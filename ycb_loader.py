@@ -88,7 +88,7 @@ class YCB_Dataset(Dataset):
 
         #cropped_img_non_noisy = np.copy(cropped_img)
         #cropped_img_noisy, noise_idxs = util.add_noise(cropped_img, 0.2)
-        data_image_noisy, noise_idxs = util.add_noise(data_image, 0.25)
+        data_image_noisy, noise_idxs = util.add_noise(data_image, 0.5)
         #colour = np.concatenate((colour, noise_idxs), axis=-1).astype(float)
         if self.transform:
             data_image_noisy = self.transform(data_image_noisy).float()
