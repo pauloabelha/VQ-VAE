@@ -30,8 +30,8 @@ dataset_test_args = {'imagenet': {},
                      'mnist': {'train': False, 'download': True},
 }
 
-ycb_train = 'train_small/'
-ycb_test = 'test_small/'
+ycb_train = 'train/'
+ycb_test = 'test/'
 
 dataset_sizes = {'ycb': (4, 3, 640, 480),
                  'imagenet': (3, 3, 256, 224),
@@ -174,6 +174,7 @@ def main(args):
         else:
             train_losses = train(epoch, model, train_loader, optimizer, args.cuda, args.log_interval, save_path, args)
             test_losses = test_net(epoch, model, test_loader, args.cuda, save_path, args, args.log_interval)
+
         results.add(epoch=epoch, **train_losses, **test_losses)
         for k in train_losses:
             key = k[:-6]
@@ -255,10 +256,8 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
     data_to_save = []
     outputs_to_save = []
     for batch_idx, (data, labels) in enumerate(train_loader):
-        if len(data_to_save) <= args.log_num_images_to_save:
-            data_to_save.append(data[0, 0:3, :, :])
         if batch_idx == 0:
-            logging.info('Processing first batch '
+            logging.info('Training: Processing first batch '
                          'with max memory batch size of {}'
                          ' for a batch size of {} '
                          'and logging info every {} batches'.
@@ -271,25 +270,16 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
             label_img = label_img.cuda()
 
         outputs = model(data)
-        if len(outputs_to_save) <= args.log_num_images_to_save:
+        if ((batch_idx + 1) > len(train_loader) - args.log_num_images_to_save) \
+                and ((batch_idx + 1) <= len(train_loader)):
+            data_to_save.append(data[0, 0:3, :, :])
             outputs_to_save.append(outputs[0][0, 0:3, :, :])
 
-        #image = ((data[0].cpu().detach().numpy() + 0.5) * 255.).astype(int)
-        #image = image[0:3, :, :]
-        #vis.plot_image(image)
-        #vis.show()
-
-        #label_img = ((label_img[0][0].cpu().detach().numpy() + 0.5) * 255.).astype(int)
-        #vis.plot_image(label_img)
-        #vis.show()
         loss = model.loss_function(label_img, *outputs)
         loss.backward()
 
-        batch_num = (batch_idx + 1) * args.max_mem_batch_size
+        batch_num = (batch_idx + 1) * data.shape[0] * args.max_mem_batch_size
         if batch_num > 0 and batch_num % args.batch_size == 0:
-            if not batch_idx == (len(train_loader) - 1):
-                data_to_save = []
-                outputs_to_save = []
             optimizer.step()
             optimizer.zero_grad()
             num_processed_batches = int((batch_num / args.batch_size))
@@ -315,22 +305,11 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
                     losses[key + '_train'] = 0
 
         if batch_idx == (len(train_loader) - 1):
-            # print('----------------------------------')
-            # print(np.mean(data.cpu().numpy()))
-            # print(np.std(data.cpu().numpy()))
-            # print('----------------------------------')
-            # print('--------TRAIN-----------')
-            # print(outputs[0][0])
-            #data = data[:, 0:3, :, :].permute(0, 1, 3, 2)
-            #output_to_save = outputs[0][:, 0:3, :, :].permute(0, 1, 3, 2)
-            #save_reconstructed_images(data, epoch, output_to_save, save_path, 'reconstruction_train_ycb')
             data_to_save = torch.stack(data_to_save).permute(0, 1, 3, 2).cpu()
             outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu()
             save_reconstructed_images(data_to_save, epoch, outputs_to_save, save_path, 'reconstruction_train_ycb_batch')
-
-            data_to_save = []
-            outputs_to_save = []
-            # print('-----------------------')
+            del data_to_save
+            del outputs_to_save
 
 
     for key in epoch_losses:
@@ -354,6 +333,7 @@ def test_net(epoch, model, test_loader, cuda, save_path, args, log_interval):
     with torch.no_grad():
         start_time = time.time()
         for i, (data, _) in enumerate(test_loader):
+
             if cuda:
                 data = data.cuda()
             outputs = model(data)
@@ -396,6 +376,14 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
     with torch.no_grad():
         start_time = time.time()
         for i, (data, labels) in enumerate(test_loader):
+            if i == 0:
+                logging.info('Testing: Processing first batch '
+                             'with max memory batch size of {}'
+                             ' for a batch size of {} '
+                             'and logging info every {} batches'.
+                             format(args.max_mem_batch_size,
+                                    args.batch_size,
+                                    args.log_interval))
             if len(data_to_save) <= args.log_num_images_to_save:
                 data_to_save.append(data[0, 0:3, :, :])
             label_img, _ = labels
@@ -412,6 +400,7 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
             for key in latest_losses:
                 losses[key + '_test'] += float(latest_losses[key])
             batch_num = (i + 1) * args.max_mem_batch_size
+            num_processed_batches = int((batch_num / args.batch_size))
             if not_saved_test_images and batch_num > args.log_num_images_to_save:
                 data_to_save = torch.stack(data_to_save).permute(0, 1, 3, 2).cpu()
                 outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu()
@@ -423,14 +412,15 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
             if args.dataset == 'imagenet' and i * len(data) > 1000:
                 break
             if batch_num > 0 and batch_num % args.batch_size == 0:
-                loss_string = ' '.join(['{}: {:.6f}'.format(k, v) for k, v in losses.items()])
-                logging.info('Test Epoch: {epoch} [{batch:5d}/{total_batch} ({percent:2d}%)]   time:'
-                             ' {time:3.2f}   {loss}'
-                             .format(epoch=epoch, batch=i * len(data), total_batch=len(test_loader) * len(data),
-                                     percent=int(100. * i / len(test_loader)),
-                                     time=time.time() - start_time,
-                                     loss=loss_string))
-                start_time = time.time()
+                if num_processed_batches % log_interval == 0:
+                    loss_string = ' '.join(['{}: {:.6f}'.format(k, v) for k, v in losses.items()])
+                    logging.info('Test Epoch: {epoch} [{batch:5d}/{total_batch} ({percent:2d}%)]   time:'
+                                 ' {time:3.2f}   {loss}'
+                                 .format(epoch=epoch, batch=i * len(data), total_batch=len(test_loader) * len(data),
+                                         percent=int(100. * i / len(test_loader)),
+                                         time=time.time() - start_time,
+                                         loss=loss_string))
+                    start_time = time.time()
     for key in losses:
         if args.dataset != 'imagenet':
             losses[key] /= (len(test_loader.dataset) / test_loader.batch_size)
