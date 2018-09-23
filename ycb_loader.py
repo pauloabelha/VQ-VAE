@@ -7,7 +7,7 @@ import numpy as np
 import visualize as vis
 from numpy import genfromtxt
 import util
-
+import sys
 
 class YCB_Dataset(Dataset):
 
@@ -88,6 +88,7 @@ class YCB_Dataset(Dataset):
 
         #cropped_img_non_noisy = np.copy(cropped_img)
         #cropped_img_noisy, noise_idxs = util.add_noise(cropped_img, 0.2)
+
         data_image_noisy, noise_idxs = util.add_noise(data_image, 0.5)
         #colour = np.concatenate((colour, noise_idxs), axis=-1).astype(float)
         if self.transform:
@@ -102,7 +103,7 @@ class YCB_Dataset(Dataset):
         #vis.plot_image((colour.numpy() + 0.5) * 255)
         #vis.show()
 
-        return data_image_noisy.float(), (colour, pose)
+        return data_image_noisy, colour
 
     def __len__(self):
         return self.length

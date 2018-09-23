@@ -12,6 +12,8 @@ from auto_encoder2 import *
 import ycb_loader
 import visualize as vis
 import util
+import torch
+import gc
 
 models = {'ycb': {'vqvae': VQ_CVAE},
           'imagenet': {'vqvae': VQ_CVAE},
@@ -32,6 +34,7 @@ dataset_test_args = {'imagenet': {},
 
 ycb_train = 'train/'
 ycb_test = 'test/'
+ycb_start_from_checkpoint = True
 
 dataset_sizes = {'ycb': (4, 3, 640, 480),
                  'imagenet': (3, 3, 256, 224),
@@ -53,6 +56,10 @@ default_hyperparams = {'ycb': {'lr': 2e-4, 'k': 256, 'hidden': 128},
                        'cifar10': {'lr': 2e-4, 'k': 10, 'hidden': 256},
                        'mnist': {'lr': 1e-4, 'k': 10, 'hidden': 64}}
 
+def save_checkpoint(state, root_folder, filename='checkpoint.pth.tar'):
+    prev_rot_folder = root_folder.split('\\')[0]
+    torch.save(state, prev_rot_folder + '/' + filename)
+
 
 def main(args):
     parser = argparse.ArgumentParser(description='Variational AutoEncoders')
@@ -60,7 +67,7 @@ def main(args):
     model_parser = parser.add_argument_group('Model Parameters')
     model_parser.add_argument('--model', default='vae', choices=['vae', 'vqvae'],
                               help='autoencoder variant to use: vae | vqvae')
-    model_parser.add_argument('--batch-size', type=int, default=16, metavar='N',
+    model_parser.add_argument('--batch-size', type=int, default=32, metavar='N',
                               help='input batch size for training (default: 128)')
     model_parser.add_argument('--max-mem-batch_size', type=int, default=1, metavar='N',
                               help='input max memory batch size for training (default: 1)')
@@ -105,6 +112,7 @@ def main(args):
 
     lr = args.lr or default_hyperparams[args.dataset]['lr']
     k = args.k or default_hyperparams[args.dataset]['k']
+    orig_k = k
     hidden = args.hidden or default_hyperparams[args.dataset]['hidden']
     num_channels_in = dataset_sizes[args.dataset][0]
     num_channels_out = dataset_sizes[args.dataset][1]
@@ -169,8 +177,26 @@ def main(args):
 
     for epoch in range(1, args.epochs + 1):
         if args.dataset == 'ycb':
+            if ycb_start_from_checkpoint:
+                prev_rot_folder = save_path.split('\\')[0]
+                checkpoint = torch.load(prev_rot_folder + '/' + 'ycb_checkpoint.pth.tar')
+                args = checkpoint['args']
+                epoch = checkpoint['epoch']
+                model.load_state_dict(checkpoint['state_dict'])
+                optimizer.load_state_dict(checkpoint['optimizer'])
+                if args.cuda:
+                    model.cuda()
+
             train_losses = train_ycb(epoch, model, train_loader, optimizer, args.cuda, args.log_interval, save_path, args)
             test_losses = test_net_ycb(epoch, model, test_loader, args.cuda, save_path, args, args.log_interval)
+
+            save_checkpoint({
+                'args': args,
+                'epoch': epoch,
+                'state_dict': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+            }, root_folder=save_path, filename='ycb_checkpoint.pth.tar')
+
         else:
             train_losses = train(epoch, model, train_loader, optimizer, args.cuda, args.log_interval, save_path, args)
             test_losses = test_net(epoch, model, test_loader, args.cuda, save_path, args, args.log_interval)
@@ -252,10 +278,10 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
     losses = {k + '_train': 0 for k, v in loss_dict.items()}
     epoch_losses = {k + '_train': 0 for k, v in loss_dict.items()}
     start_time = time.time()
-    batch_idx, data = None, None
     data_to_save = []
     outputs_to_save = []
-    for batch_idx, (data, labels) in enumerate(train_loader):
+
+    for batch_idx, (data, label_img) in enumerate(train_loader):
         if batch_idx == 0:
             logging.info('Training: Processing first batch '
                          'with max memory batch size of {}'
@@ -264,26 +290,27 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
                          format(args.max_mem_batch_size,
                                 args.batch_size,
                                 args.log_interval))
-        label_img, _ = labels
         if cuda:
             data = data.cuda()
             label_img = label_img.cuda()
-
         outputs = model(data)
-        if ((batch_idx + 1) > len(train_loader) - args.log_num_images_to_save) \
-                and ((batch_idx + 1) <= len(train_loader)):
-            data_to_save.append(data[0, 0:3, :, :])
-            outputs_to_save.append(outputs[0][0, 0:3, :, :])
+
+        if (batch_idx + 1) > (len(train_loader) - args.log_num_images_to_save):
+            if(batch_idx + 1) <= len(train_loader):
+                data_to_save.append(data[0, 0:3, :, :])
+                outputs_to_save.append(outputs[0][0, 0:3, :, :])
 
         loss = model.loss_function(label_img, *outputs)
         loss.backward()
 
         batch_num = (batch_idx + 1) * data.shape[0] * args.max_mem_batch_size
-        if batch_num > 0 and batch_num % args.batch_size == 0:
+        batch_completed = batch_num > 0 and batch_num % args.batch_size == 0
+        if batch_completed:
             optimizer.step()
             optimizer.zero_grad()
             num_processed_batches = int((batch_num / args.batch_size))
-            if num_processed_batches % log_interval == 0:
+            log_this_batch = num_processed_batches % log_interval == 0
+            if log_this_batch:
                 latest_losses = model.latest_losses()
                 for key in latest_losses:
                     losses[key + '_train'] += float(latest_losses[key])
@@ -308,9 +335,6 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
             data_to_save = torch.stack(data_to_save).permute(0, 1, 3, 2).cpu()
             outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu()
             save_reconstructed_images(data_to_save, epoch, outputs_to_save, save_path, 'reconstruction_train_ycb_batch')
-            del data_to_save
-            del outputs_to_save
-
 
     for key in epoch_losses:
         if args.dataset != 'imagenet':
@@ -321,6 +345,7 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
     logging.info('====> Epoch: {} {}'.format(epoch, loss_string))
     if len(outputs) > 3:
         model.print_atom_hist(outputs[3])
+
     return epoch_losses
 
 
@@ -375,7 +400,7 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
     outputs_to_save = []
     with torch.no_grad():
         start_time = time.time()
-        for i, (data, labels) in enumerate(test_loader):
+        for i, (data, label_img) in enumerate(test_loader):
             if i == 0:
                 logging.info('Testing: Processing first batch '
                              'with max memory batch size of {}'
@@ -384,15 +409,14 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
                              format(args.max_mem_batch_size,
                                     args.batch_size,
                                     args.log_interval))
-            if len(data_to_save) <= args.log_num_images_to_save:
-                data_to_save.append(data[0, 0:3, :, :])
-            label_img, _ = labels
+
             if cuda:
                 data = data.cuda()
                 label_img = label_img.cuda()
             outputs = model(data)
 
-            if len(outputs_to_save) <= args.log_num_images_to_save:
+            if (i + 1) <= args.log_num_images_to_save:
+                data_to_save.append(data[0, 0:3, :, :])
                 outputs_to_save.append(outputs[0][0, 0:3, :, :])
 
             model.loss_function(label_img, *outputs)
@@ -406,8 +430,8 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
                 outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu()
                 save_reconstructed_images(data_to_save, epoch, outputs_to_save, save_path,
                                       'reconstruction_test_ycb_batch')
-                data_to_save = []
-                outputs_to_save = []
+                del data_to_save
+                del outputs_to_save
                 not_saved_test_images = False
             if args.dataset == 'imagenet' and i * len(data) > 1000:
                 break
