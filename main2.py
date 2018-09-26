@@ -34,7 +34,7 @@ dataset_test_args = {'imagenet': {},
 
 ycb_train = 'train/'
 ycb_test = 'test/'
-ycb_start_from_checkpoint = True
+ycb_start_from_checkpoint = False
 
 dataset_sizes = {'ycb': (4, 3, 640, 480),
                  'imagenet': (3, 3, 256, 224),
