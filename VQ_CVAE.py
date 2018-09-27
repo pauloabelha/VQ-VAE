@@ -56,7 +56,7 @@ class VQ_CVAE(nn.Module):
         self.vq_coef = vq_coef
         self.commit_coef = commit_coef
         self.mse = 0
-        self.vq_loss = Variable(torch.zeros(1))
+        self.vq_loss = 0
         self.commit_loss = 0
 
         for l in self.modules():
@@ -77,6 +77,13 @@ class VQ_CVAE(nn.Module):
         return torch.tanh(self.decoder(x))
 
     def forward(self, x):
+        z_e = self.encode(x)
+        z_q, _ = self.emb(z_e, weight_sg=True)
+        return z_q
+        #decoded_img = self.decode(z_q)
+        #return decoded_img
+
+    def forward_original(self, x):
         z_e = self.encode(x)
         self.f = z_e.shape[-1]
         z_q, argmin = self.emb(z_e, weight_sg=True)

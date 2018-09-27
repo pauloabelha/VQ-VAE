@@ -37,10 +37,11 @@ class NearestEmbedFunc(Function):
         # find nearest neighbors
         dist = torch.norm(x_expanded - emb_expanded, 2, 1)
         _, argmin = dist.min(-1)
+
         shifted_shape = [input.shape[0], *list(input.shape[2:]) ,input.shape[1]]
         result = emb.t().index_select(0, argmin.view(-1)).view(shifted_shape).permute(0, ctx.dims[-1], *ctx.dims[1:-1])
 
-        ctx.argmin = argmin
+        ctx.argmin = argmin.detach()
         return result.contiguous(), argmin
 
     @staticmethod

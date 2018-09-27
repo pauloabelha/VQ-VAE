@@ -5,47 +5,35 @@ import time
 import argparse
 import torch.utils.data
 from torchvision import transforms
-from auto_encoder2 import *
 import ycb_loader
 import torch
-
+from torch.nn import functional as F
 
 def train(epoch, model, train_loader, optimizer, cuda, log_interval, save_path, args):
-    start_time = time.time()
-    loss_dict = model.latest_losses()
-    losses = {k + '_train': 0 for k, v in loss_dict.items()}
-    epoch_losses = {k + '_train': 0 for k, v in loss_dict.items()}
     for batch_idx, (data, label_img) in enumerate(train_loader):
+        print('Batch idx:  {}'.format(batch_idx))
+        optimizer.zero_grad()
+        if cuda:
+            data = data.cuda()
+            label_img = label_img.cuda()
+
         outputs = model(data)
 
-        loss = model.loss_function(label_img, *outputs)
+        loss = F.mse_loss(outputs, torch.zeros((1, 128, 64, 64)).cuda())
+        #loss = model.loss_function(label_img, *outputs)
         loss.backward()
 
         optimizer.step()
-        optimizer.zero_grad()
-
-        if batch_idx % log_interval == 0:
-            latest_losses = model.latest_losses()
-            for key in latest_losses:
-                losses[key + '_train'] += float(latest_losses[key])
-                epoch_losses[key + '_train'] += float(latest_losses[key])
-            for key in latest_losses:
-                losses[key + '_train'] /= log_interval
-            loss_string = ' '.join(['{}: {:.6f}'.format(k, v) for k, v in losses.items()])
-            logging.info('Train Epoch: {epoch} [{batch:5d}/{total_batch} ({percent:2d}%)]   time:'
-                         ' {time:3.2f}   {loss}'
-                         .format(epoch=epoch, batch=(batch_idx + 1) * len(data),
-                                 total_batch=len(train_loader) * len(data),
-                                 percent=int(100. * (batch_idx + 1) / len(train_loader)),
-                                 time=time.time() - start_time,
-                                 loss=loss_string))
-            start_time = time.time()
 
 
 def main(args):
+    print('PyTorch version: {}'.format(torch.__version__))
+    print('Cuda version: {}'.format(torch.version.cuda))
     parser = argparse.ArgumentParser(description='Variational AutoEncoders')
 
-    parser.add_argument('--batch-size', type=int, default=32, metavar='N',
+    parser.add_argument('--train-dir', default='/home/paulo/datasets/ycb/train/',
+                                 help='directory containing the dataset')
+    parser.add_argument('--batch-size', type=int, default=2, metavar='N',
                               help='input batch size for training (default: 128)')
     parser.add_argument('--max-mem-batch_size', type=int, default=1, metavar='N',
                               help='input max memory batch size for training (default: 1)')
@@ -54,8 +42,7 @@ def main(args):
     parser.add_argument('--no-cuda', action='store_true', default=False,
                                      help='enables CUDA training')
     args = parser.parse_args(args)
-    args.cuda = not args.no_cuda and torch.cuda.is_available()
-
+    args.seed = 1
     args.img_res = (256, 256)
     args.num_channels_in = 4
     args.num_channels_out = 3
@@ -63,12 +50,23 @@ def main(args):
     args.hidden = 128
     args.k = 256
     args.lr = 2e-4
+    args.cuda = not args.no_cuda and torch.cuda.is_available()
+    if args.cuda:
+        print('Using CUDA')
+        torch.cuda.manual_seed_all(args.seed)
+        torch.cuda.manual_seed(args.seed)
+    else:
+        print('Not using CUDA')
+
+
+
+    torch.manual_seed(args.seed)
+
     transform = transforms.Compose([transforms.ToTensor(),
                                                          transforms.Normalize((0.5, 0.5, 0.5, 0.5), (0.5, 0.5, 0.5, 0.5))])
-    args.dataset_root_folder = "/home/paulo/datasets/ycb/train/"
 
 
-    train_loader = ycb_loader.DataLoader(args.dataset_root_folder,
+    train_loader = ycb_loader.DataLoader(args.train_dir,
                                                  noise_channel=True,
                                                  batch_size=args.max_mem_batch_size,
                                                  img_res=args.img_res,
@@ -78,6 +76,8 @@ def main(args):
     results, save_path = setup_logging_and_results(args)
 
     model = VQ_CVAE(d=args.hidden, k=args.k, num_channels_in=args.num_channels_in, num_channels_out=args.num_channels_out)
+    if args.cuda:
+        model.cuda()
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 30, 0.5)
