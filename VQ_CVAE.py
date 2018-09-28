@@ -79,9 +79,8 @@ class VQ_CVAE(nn.Module):
     def forward(self, x):
         z_e = self.encode(x)
         z_q, _ = self.emb(z_e, weight_sg=True)
-        return z_q
-        #decoded_img = self.decode(z_q)
-        #return decoded_img
+        decoded_img = self.decode(z_q)
+        return decoded_img
 
     def forward_original(self, x):
         z_e = self.encode(x)
