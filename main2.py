@@ -35,6 +35,7 @@ dataset_test_args = {'imagenet': {},
 ycb_train = 'train/'
 ycb_test = 'test/'
 ycb_start_from_checkpoint = False
+ycb_noise_level = 0.8
 
 dataset_sizes = {'ycb': (4, 3, 640, 480),
                  'imagenet': (3, 3, 256, 224),
@@ -154,13 +155,16 @@ def main(args):
                                              batch_size=args.max_mem_batch_size,
                                              img_res=(dataset_sizes[args.dataset][2], dataset_sizes[args.dataset][3]),
                                              num_channels=dataset_sizes[args.dataset][0],
-                                             transform=dataset_transforms[args.dataset])
+                                             transform=dataset_transforms[args.dataset],
+                                             noise_level=ycb_noise_level)
         test_loader = ycb_loader.DataLoader(args.data_dir + ycb_test,
                                             noise_channel=True,
                                             batch_size=args.max_mem_batch_size,
                                             img_res=(dataset_sizes[args.dataset][2], dataset_sizes[args.dataset][3]),
                                             num_channels=dataset_sizes[args.dataset][0],
-                                            transform=dataset_transforms[args.dataset],)
+                                            transform=dataset_transforms[args.dataset],
+                                            noise_level=ycb_noise_level)
+
         print('Length of training dataset: {}'.format(len(train_loader.dataset)))
         print('Length of test dataset: {}'.format(len(test_loader.dataset)))
     else:

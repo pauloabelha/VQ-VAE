@@ -21,16 +21,18 @@ class YCB_Dataset(Dataset):
     with_imagenet_filepaths = {}
     pose_filepaths = {}
     noise_channel = False
+    noise_level = 0.5
 
     num_types_of_file = 3 # colour, mask and depth
 
-    def __init__(self, root_folder, noise_channel=False, transform=None, img_res=(64, 64), num_channels=4):
+    def __init__(self, root_folder, noise_channel=False, transform=None, img_res=(64, 64), num_channels=4, noise_level=0.5):
         self.noise_channel = noise_channel
         self.transform = transform
         self.img_res = img_res
         self.root_folder = root_folder
         self.file_idxs = set([])
         self.num_channels = num_channels
+        self.noise_level = noise_level
         num_files = 0
         for root, dirs, files in os.walk(root_folder, topdown=True):
             for filename in sorted(files):
@@ -89,7 +91,7 @@ class YCB_Dataset(Dataset):
         #cropped_img_non_noisy = np.copy(cropped_img)
         #cropped_img_noisy, noise_idxs = util.add_noise(cropped_img, 0.2)
 
-        data_image_noisy, noise_idxs = util.add_noise(data_image, 0.5)
+        data_image_noisy, noise_idxs = util.add_noise(data_image, self.noise_level)
         #colour = np.concatenate((colour, noise_idxs), axis=-1).astype(float)
         if self.transform:
             data_image_noisy = self.transform(data_image_noisy).float()
@@ -110,12 +112,13 @@ class YCB_Dataset(Dataset):
 
 
 
-def DataLoader(root_folder,  noise_channel=False, transform=None, batch_size=4, img_res=(64, 64), num_channels=4):
+def DataLoader(root_folder,  noise_channel=False, transform=None, batch_size=4, img_res=(64, 64), num_channels=4, noise_level=0.5):
     dataset = YCB_Dataset(root_folder,
                           noise_channel=noise_channel,
                           transform=transform,
                           img_res=img_res,
-                          num_channels=num_channels)
+                          num_channels=num_channels,
+                          noise_level=noise_level)
     return torch.utils.data.DataLoader(
         dataset,
         batch_size=batch_size,
