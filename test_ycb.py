@@ -14,10 +14,10 @@ k = 256
 hidden = 128
 num_channels_in = 4
 num_channels_out = 3
-img_path = 'C:/Users/Administrator/Documents/Datasets/ycb_pepper/crackers1/RGBRenderTarget0__3706.png'
+img_path = 'C:/Users/Administrator/Documents/Datasets/ycb_unreal_colour (493).png'
 img_save_path = results_dir + 'output_img.png'
 img_res = (640, 480)
-noise_level = 0.9
+noise_level = 0.0001
 transform = transforms.Compose([transforms.ToTensor(),
                                 transforms.Normalize(
                                     (0.5, 0.5, 0.5, 0.5),
@@ -44,12 +44,21 @@ if use_cuda:
     model.cuda()
     data_image_noisy = data_image_noisy.cuda()
 
+data_image_noisy = data_image_noisy.view(1, num_channels_in, img_res[0], img_res[1])
+outputs = model(data_image_noisy)
+
+data_to_save = []
+data_to_save.append(data_image_noisy[0, 0:3, :, :])
+data_to_save = torch.stack(data_to_save).permute(0, 1, 3, 2).cpu()
+
 outputs_to_save = []
-outputs = model(data_image_noisy.view(1, num_channels_in, img_res[0], img_res[1]))
 outputs_to_save.append(outputs[0][0, 0:3, :, :])
 outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu()
 
-save_image(outputs_to_save, img_save_path, nrow=1, normalize=True)
+n = min(data_to_save.size(0), 1)
+comparison = torch.cat([data_to_save[:n], outputs_to_save[:n]])
+
+save_image(comparison, img_save_path, nrow=1, normalize=True)
 
 
 
