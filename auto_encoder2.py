@@ -404,14 +404,15 @@ class VQ_CVAE(nn.Module):
         return self.encoder(x)
 
     def decode(self, x):
-        return F.tanh(self.decoder(x))
+        return torch.tanh(self.decoder(x))
 
     def forward(self, x):
         z_e = self.encode(x)
         self.f = z_e.shape[-1]
         z_q, argmin = self.emb(z_e, weight_sg=True)
         emb, _ = self.emb(z_e.detach())
-        return self.decode(z_q), z_e, emb, argmin
+        output_img = self.decode(z_q)
+        return output_img, z_e, emb, argmin
 
     def sample(self, size):
         sample = Variable(torch.randn(size, self.d, self.f, self.f), requires_grad=False)

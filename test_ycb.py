@@ -17,7 +17,7 @@ num_channels_out = 3
 img_path = 'C:/Users/Administrator/Documents/Datasets/ycb_unreal_colour (493).png'
 img_save_path = results_dir + 'output_img.png'
 img_res = (640, 480)
-noise_level = 0.0001
+noise_level = 0.01
 transform = transforms.Compose([transforms.ToTensor(),
                                 transforms.Normalize(
                                     (0.5, 0.5, 0.5, 0.5),

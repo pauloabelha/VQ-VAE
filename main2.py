@@ -35,7 +35,6 @@ dataset_test_args = {'imagenet': {},
 ycb_train = 'train/'
 ycb_test = 'test/'
 ycb_start_from_checkpoint = False
-ycb_noise_level = 0.9
 
 dataset_sizes = {'ycb': (4, 3, 640, 480),
                  'imagenet': (3, 3, 256, 224),
@@ -86,6 +85,8 @@ def main(args):
                               help='kl-divergence coefficient in loss')
 
     training_parser = parser.add_argument_group('Training Parameters')
+    training_parser.add_argument('--noise-level', default=0, type=float,
+                                 help='Noise leve to add to input image')
     training_parser.add_argument('--dataset', default='cifar10', choices=['ycb', 'mnist', 'cifar10', 'imagenet'],
                                  help='dataset to use: mnist | cifar10')
     training_parser.add_argument('--data-dir', default='/home/paulo/datasets/',
@@ -124,11 +125,14 @@ def main(args):
 
     torch.manual_seed(args.seed)
     if args.cuda:
+        logging.info('Using CUDA')
         torch.cuda.manual_seed_all(args.seed)
         args.gpus = [int(i) for i in args.gpus.split(',')]
         torch.cuda.set_device(args.gpus[0])
         cudnn.benchmark = True
         torch.cuda.manual_seed(args.seed)
+    else:
+        logging.info('Not using CUDA')
 
     models_dict = models[args.dataset]
     if args.dataset == 'ycb':
@@ -156,14 +160,14 @@ def main(args):
                                              img_res=(dataset_sizes[args.dataset][2], dataset_sizes[args.dataset][3]),
                                              num_channels=dataset_sizes[args.dataset][0],
                                              transform=dataset_transforms[args.dataset],
-                                             noise_level=ycb_noise_level)
+                                             noise_level=args.noise_level)
         test_loader = ycb_loader.DataLoader(args.data_dir + ycb_test,
                                             noise_channel=True,
                                             batch_size=args.max_mem_batch_size,
                                             img_res=(dataset_sizes[args.dataset][2], dataset_sizes[args.dataset][3]),
                                             num_channels=dataset_sizes[args.dataset][0],
                                             transform=dataset_transforms[args.dataset],
-                                            noise_level=ycb_noise_level)
+                                            noise_level=args.noise_level)
 
         print('Length of training dataset: {}'.format(len(train_loader.dataset)))
         print('Length of test dataset: {}'.format(len(test_loader.dataset)))
