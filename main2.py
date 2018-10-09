@@ -1,5 +1,8 @@
-import os
 import sys
+sys.path.append('../handy')
+import fpa_dataset
+
+import os
 import time
 import argparse
 import torch.utils.data
@@ -15,7 +18,8 @@ import util
 import torch
 import gc
 
-models = {'ycb': {'vqvae': VQ_CVAE},
+models = {'fpa': {'vqvae': VQ_CVAE},
+          'ycb': {'vqvae': VQ_CVAE},
           'imagenet': {'vqvae': VQ_CVAE},
           'cifar10': {'vae': CVAE,
                       'vqvae': VQ_CVAE},
@@ -36,14 +40,17 @@ ycb_train = 'train/'
 ycb_test = 'test/'
 ycb_start_from_checkpoint = False
 
-dataset_sizes = {'ycb': (4, 3, 640, 480),
+dataset_sizes = {'fpa': (4, 3, 640, 480),
+                 'ycb': (4, 3, 640, 480),
                  'imagenet': (3, 3, 256, 224),
                  'cifar10': (3, 3, 32, 32),
                  'mnist': (1, 1, 28, 28)}
 
 
 
-dataset_transforms = {'ycb': transforms.Compose([transforms.ToTensor(),
+dataset_transforms = {'fpa': transforms.Compose([transforms.ToTensor(),
+                                                     transforms.Normalize(mean=[0.5], std=[0.5])]),
+                      'ycb': transforms.Compose([transforms.ToTensor(),
                                                      transforms.Normalize((0.5, 0.5, 0.5, 0.5), (0.5, 0.5, 0.5, 0.5))]),
                       'imagenet': transforms.Compose([transforms.Resize(128), transforms.CenterCrop(128),
                                                       transforms.ToTensor(),
@@ -51,7 +58,8 @@ dataset_transforms = {'ycb': transforms.Compose([transforms.ToTensor(),
                       'cifar10': transforms.Compose([transforms.ToTensor(),
                                                      transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
                       'mnist': transforms.ToTensor()}
-default_hyperparams = {'ycb': {'lr': 2e-4, 'k': 256, 'hidden': 128},
+default_hyperparams = {'fpa': {'lr': 2e-4, 'k': 256, 'hidden': 128},
+                        'ycb': {'lr': 2e-4, 'k': 256, 'hidden': 128},
                        'imagenet': {'lr': 2e-4, 'k': 512, 'hidden': 128},
                        'cifar10': {'lr': 2e-4, 'k': 10, 'hidden': 256},
                        'mnist': {'lr': 1e-4, 'k': 10, 'hidden': 64}}
@@ -67,6 +75,7 @@ def main(args):
     model_parser = parser.add_argument_group('Model Parameters')
     model_parser.add_argument('--model', default='vae', choices=['vae', 'vqvae'],
                               help='autoencoder variant to use: vae | vqvae')
+    model_parser.add_argument('--split-filename', default='', help='Dataset split filename')
     model_parser.add_argument('--batch-size', type=int, default=32, metavar='N',
                               help='input batch size for training (default: 128)')
     model_parser.add_argument('--max-mem-batch_size', type=int, default=1, metavar='N',
@@ -87,7 +96,7 @@ def main(args):
     training_parser = parser.add_argument_group('Training Parameters')
     training_parser.add_argument('--noise-level', default=0, type=float,
                                  help='Noise leve to add to input image')
-    training_parser.add_argument('--dataset', default='cifar10', choices=['ycb', 'mnist', 'cifar10', 'imagenet'],
+    training_parser.add_argument('--dataset', default='cifar10', choices=['fpa', 'ycb', 'mnist', 'cifar10', 'imagenet'],
                                  help='dataset to use: mnist | cifar10')
     training_parser.add_argument('--data-dir', default='/home/paulo/datasets/',
                                  help='directory containing the dataset')
@@ -135,7 +144,9 @@ def main(args):
         logging.info('Not using CUDA')
 
     models_dict = models[args.dataset]
-    if args.dataset == 'ycb':
+    if args.dataset == 'fpa':
+        model = VQ_CVAE(d=hidden, k=k, num_channels_in=1, num_channels_out=1)
+    elif args.dataset == 'ycb':
         model = VQ_CVAE(d=hidden, k=k, num_channels_in=num_channels_in, num_channels_out=num_channels_out)
     elif args.dataset == 'imagenet':
         model = models_dict['vqvae'](d=hidden, k=k, num_channels_in=num_channels_in, num_channels_out=num_channels_out)
@@ -153,7 +164,23 @@ def main(args):
     if 'imagenet' in args.dataset:
         dataset_train_dir = os.path.join(dataset_train_dir, 'train')
         dataset_test_dir = os.path.join(dataset_test_dir, 'val')
-    if args.dataset == 'ycb':
+    if args.dataset == 'fpa':
+        train_loader = fpa_dataset.DataLoaderTracking(root_folder=args.data_dir,
+                                                      type='train', transform_color=None,
+                                                      transform_depth=dataset_transforms[args.dataset],
+                                                      batch_size=args.max_mem_batch_size,
+                                                      split_filename=args.split_filename,
+                                                      for_autoencoding=True)
+        test_loader = fpa_dataset.DataLoaderTracking(root_folder=args.data_dir,
+                                      type='test', transform_color=None,
+                                      transform_depth=dataset_transforms[args.dataset],
+                                      batch_size=args.max_mem_batch_size,
+                                      split_filename=args.split_filename,
+                                                     for_autoencoding=True)
+
+        print('Length of training dataset: {}'.format(len(train_loader.dataset)))
+        print('Length of test dataset: {}'.format(len(test_loader.dataset)))
+    elif args.dataset == 'ycb':
         train_loader = ycb_loader.DataLoader(args.data_dir + ycb_train,
                                              noise_channel=True,
                                              batch_size=args.max_mem_batch_size,
@@ -184,10 +211,10 @@ def main(args):
             batch_size=args.batch_size, shuffle=True, **kwargs)
 
     for epoch in range(1, args.epochs + 1):
-        if args.dataset == 'ycb':
+        if args.dataset == 'ycb' or args.dataset == 'fpa':
             if ycb_start_from_checkpoint:
                 prev_rot_folder = save_path.split('\\')[0]
-                checkpoint = torch.load(prev_rot_folder + '/' + 'ycb_checkpoint.pth.tar')
+                checkpoint = torch.load(prev_rot_folder + '/' + args.dataset + '_checkpoint.pth.tar')
                 args = checkpoint['args']
                 epoch = checkpoint['epoch']
                 model.load_state_dict(checkpoint['state_dict'])
@@ -345,6 +372,7 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
             save_reconstructed_images(data_to_save, epoch, outputs_to_save, save_path, 'reconstruction_train_ycb_batch')
 
     for key in epoch_losses:
+
         if args.dataset != 'imagenet':
             epoch_losses[key] /= (len(train_loader.dataset) / train_loader.batch_size)
         else:

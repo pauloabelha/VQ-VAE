@@ -1,5 +1,11 @@
 import numpy as np
 
+fpa_depth_intrinsics = np.eye(3)
+fpa_depth_intrinsics[0, 0] = 475.065948 # fx
+fpa_depth_intrinsics[1, 1] = 475.065857 # fy
+fpa_depth_intrinsics[0, 2] = 315.944855 # u0
+fpa_depth_intrinsics[1, 2] = 245.287079 # v0
+
 def joint_color2depth_new(u, v, proj_const, dataset_handler):
     ''' Gets the joint in the color image space
     :param joint: join in depth camera space (mm)
