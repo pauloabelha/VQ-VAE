@@ -110,7 +110,7 @@ def main(args):
                                  help='gpus used for training - e.g 0,1,3')
 
     logging_parser = parser.add_argument_group('Logging Parameters')
-    logging_parser.add_argument('--log-interval', type=int, default=10, metavar='N',
+    logging_parser.add_argument('--log-interval', type=int, default=5, metavar='N',
                                 help='how many batches to wait before logging training status')
     logging_parser.add_argument('--results-dir', metavar='RESULTS_DIR', default='./results',
                                 help='results dir')
@@ -165,18 +165,20 @@ def main(args):
         dataset_train_dir = os.path.join(dataset_train_dir, 'train')
         dataset_test_dir = os.path.join(dataset_test_dir, 'val')
     if args.dataset == 'fpa':
-        train_loader = fpa_dataset.DataLoaderTracking(root_folder=args.data_dir,
+        train_loader = fpa_dataset.DataLoaderReconstruction(root_folder=args.data_dir,
                                                       type='train', transform_color=None,
                                                       transform_depth=dataset_transforms[args.dataset],
                                                       batch_size=args.max_mem_batch_size,
                                                       split_filename=args.split_filename,
-                                                      for_autoencoding=True)
-        test_loader = fpa_dataset.DataLoaderTracking(root_folder=args.data_dir,
+                                                      for_autoencoding=True,
+                                                            input_type="depth",)
+        test_loader = fpa_dataset.DataLoaderReconstruction(root_folder=args.data_dir,
                                       type='test', transform_color=None,
                                       transform_depth=dataset_transforms[args.dataset],
                                       batch_size=args.max_mem_batch_size,
                                       split_filename=args.split_filename,
-                                                     for_autoencoding=True)
+                                                     for_autoencoding=True,
+                                                            input_type="depth")
 
         print('Length of training dataset: {}'.format(len(train_loader.dataset)))
         print('Length of test dataset: {}'.format(len(test_loader.dataset)))
@@ -317,6 +319,9 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
     outputs_to_save = []
 
     for batch_idx, (data, label_img) in enumerate(train_loader):
+        batch_num = (batch_idx + 1) * data.shape[0] * args.max_mem_batch_size
+        batch_completed = batch_num > 0 and batch_num % args.batch_size == 0
+
         if batch_idx == 0:
             logging.info('Training: Processing first batch '
                          'with max memory batch size of {}'
@@ -330,6 +335,47 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
             label_img = label_img.cuda()
         outputs = model(data)
 
+        data_to_save.append(data[0, 0:3, :, :])
+        outputs_to_save.append(outputs[0][0, 0:3, :, :])
+
+        if batch_completed:
+            log_this_batch = int((batch_num / args.batch_size)) % log_interval == 0
+            if log_this_batch:
+                #vis.plot_image(label_img.cpu().numpy().reshape((640, 480)))
+                #vis.show()
+
+                data_to_save = torch.stack(data_to_save).permute(0, 1, 3, 2).cpu()
+                data_to_save *= train_loader.dataset.normalise_const_max_depth
+                data_to_save_0_numpy = data_to_save[0].numpy().reshape((480, 640)).T
+
+                outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu().detach()
+                outputs_to_save *= train_loader.dataset.normalise_const_max_depth
+                outputs_to_save_0_numpy = outputs_to_save[0].numpy().reshape((480, 640)).T
+
+                print(batch_idx + 1)
+                print('---------------------------------------')
+                print(np.min(data_to_save_0_numpy))
+                print(np.max(data_to_save_0_numpy))
+                print(np.mean(data_to_save_0_numpy))
+                print(np.std(data_to_save_0_numpy))
+                print('---------------------------------------')
+                print(np.min(outputs_to_save_0_numpy))
+                print(np.max(outputs_to_save_0_numpy))
+                print(np.mean(outputs_to_save_0_numpy))
+                print(np.std(outputs_to_save_0_numpy))
+                print('***************************************')
+
+                #vis.plot_image(data_to_save_0_numpy)
+                #vis.show()
+                #if batch_idx % 70 == 0:
+                #    vis.plot_image(outputs_to_save_0_numpy)
+                #    vis.show()
+
+                save_reconstructed_images(data_to_save, epoch, outputs_to_save, save_path, 'reconstruction_train_ycb_batch')
+                del outputs_to_save_0_numpy, outputs_to_save
+                data_to_save = []
+                outputs_to_save = []
+
         if (batch_idx + 1) > (len(train_loader) - args.log_num_images_to_save):
             if(batch_idx + 1) <= len(train_loader):
                 data_to_save.append(data[0, 0:3, :, :])
@@ -338,8 +384,7 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
         loss = model.loss_function(label_img, *outputs)
         loss.backward()
 
-        batch_num = (batch_idx + 1) * data.shape[0] * args.max_mem_batch_size
-        batch_completed = batch_num > 0 and batch_num % args.batch_size == 0
+
         if batch_completed:
             optimizer.step()
             optimizer.zero_grad()
@@ -366,10 +411,10 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
                 for key in latest_losses:
                     losses[key + '_train'] = 0
 
-        if batch_idx == (len(train_loader) - 1):
-            data_to_save = torch.stack(data_to_save).permute(0, 1, 3, 2).cpu()
-            outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu()
-            save_reconstructed_images(data_to_save, epoch, outputs_to_save, save_path, 'reconstruction_train_ycb_batch')
+        #if batch_idx == (len(train_loader) - 1):
+        #    data_to_save = torch.stack(data_to_save).permute(0, 1, 3, 2).cpu()
+        #    outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu()
+        #    save_reconstructed_images(data_to_save, epoch, outputs_to_save, save_path, 'reconstruction_train_ycb_batch')
 
     for key in epoch_losses:
 

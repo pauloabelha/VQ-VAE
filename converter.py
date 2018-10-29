@@ -30,7 +30,7 @@ def numpy_to_plottable_rgb(numpy_img):
             return None
         img = img[:, :, 0:3]
     img = img.swapaxes(0, 1)
-    return img.astype(int)
+    return img
 
 def batch_numpy_to_plottable_rgb(batch_numpy_img, batch_axis=0):
     if batch_axis == 0:

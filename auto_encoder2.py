@@ -404,7 +404,9 @@ class VQ_CVAE(nn.Module):
         return self.encoder(x)
 
     def decode(self, x):
-        return torch.tanh(self.decoder(x))
+        x_out = self.decoder(x)
+        x_out = torch.clamp(x_out, 0.0, 1.0)
+        return x_out
 
     def forward(self, x):
         z_e = self.encode(x)
@@ -423,9 +425,24 @@ class VQ_CVAE(nn.Module):
 
     def loss_function(self, x, recon_x, z_e, emb, argmin):
         self.mse = F.mse_loss(recon_x, x)
+        self.vq_loss = torch.mean(torch.norm((emb - z_e.detach()) ** 2, 2, 1))
+        self.commit_loss = torch.mean(torch.norm((emb.detach() - z_e) ** 2, 2, 1))
 
-        self.vq_loss = torch.mean(torch.norm((emb - z_e.detach())**2, 2, 1))
-        self.commit_loss = torch.mean(torch.norm((emb.detach() - z_e)**2, 2, 1))
+        #print('----------TRUE X---------------')
+        #print(np.min(x.cpu().numpy()))
+        #print(np.max(x.cpu().numpy()))
+        #print(np.mean(x.cpu().numpy()))
+        #print(np.std(x.cpu().numpy()))
+        #print('----------DECODED    X---------------')
+        #print(np.min(recon_x.cpu().detach().numpy()))
+        #print(np.max(recon_x.cpu().detach().numpy()))
+        #print(np.mean(recon_x.cpu().detach().numpy()))
+        #print(np.std(recon_x.cpu().detach().numpy()))
+        #print('----------LOSSES   ------------------')
+        #print(self.mse.item())
+        #print(self.vq_loss.item())
+        #print(self.commit_loss.item())
+        #print('**************************************')
 
         return self.mse + self.vq_coef*self.vq_loss + self.commit_coef*self.commit_loss
 
