@@ -40,7 +40,7 @@ ycb_train = 'train/'
 ycb_test = 'test/'
 ycb_start_from_checkpoint = False
 
-dataset_sizes = {'fpa': (4, 3, 640, 480),
+dataset_sizes = {'fpa': (4, 3, 200, 200),
                  'ycb': (4, 3, 640, 480),
                  'imagenet': (3, 3, 256, 224),
                  'cifar10': (3, 3, 32, 32),
@@ -343,21 +343,32 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
             if log_this_batch:
                 #vis.plot_image(label_img.cpu().numpy().reshape((640, 480)))
                 #vis.show()
+                crop_res = train_loader.dataset.crop_res
 
+                data_to_save = data_to_save[-4:]
                 data_to_save = torch.stack(data_to_save).permute(0, 1, 3, 2).cpu()
                 data_to_save *= train_loader.dataset.normalise_const_max_depth
-                data_to_save_0_numpy = data_to_save[0].numpy().reshape((480, 640)).T
+                data_to_save_0_numpy = data_to_save[-1].numpy().reshape((crop_res[0], crop_res[1])).T
 
+                outputs_to_save = outputs_to_save[-4:]
                 outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu().detach()
                 outputs_to_save *= train_loader.dataset.normalise_const_max_depth
-                outputs_to_save_0_numpy = outputs_to_save[0].numpy().reshape((480, 640)).T
+                outputs_to_save_0_numpy = outputs_to_save[-1].numpy().reshape((crop_res[0], crop_res[1])).T
+
+                label_img_0_numpy = label_img.cpu().numpy()
+                label_img_0_numpy *= train_loader.dataset.normalise_const_max_depth
 
                 print(batch_idx + 1)
-                print('---------------------------------------')
-                print(np.min(data_to_save_0_numpy))
-                print(np.max(data_to_save_0_numpy))
-                print(np.mean(data_to_save_0_numpy))
-                print(np.std(data_to_save_0_numpy))
+                #print('---------------------------------------')
+                #print(np.min(data_to_save_0_numpy))
+                #print(np.max(data_to_save_0_numpy))
+                #print(np.mean(data_to_save_0_numpy))
+                #print(np.std(data_to_save_0_numpy))
+                print('***************************************')
+                print(np.min(label_img_0_numpy))
+                print(np.max(label_img_0_numpy))
+                print(np.mean(label_img_0_numpy))
+                print(np.std(label_img_0_numpy))
                 print('---------------------------------------')
                 print(np.min(outputs_to_save_0_numpy))
                 print(np.max(outputs_to_save_0_numpy))
