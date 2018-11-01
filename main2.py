@@ -1,5 +1,4 @@
 import sys
-sys.path.append('../handy')
 import fpa_dataset
 
 import os
