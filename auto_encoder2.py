@@ -436,20 +436,20 @@ class VQ_CVAE(nn.Module):
         return self.mse + self.vq_loss + self.commit_loss
 
     def loss_function_adversarial(self, x, recon_x, z_e, emb, argmin):
-        self.mse = F.mse_loss(recon_x, x)
+        self.mse = 3.0 * (1.0 + F.mse_loss(recon_x, x))
         x_hand = x[:, 0, :, :]
         x_obj = x[:, 1, :, :]
         recon_hand = recon_x[:, 0, :, :]
         recon_obj = recon_x[:, 1, :, :]
         self.mse_hand_adv = 1.0 - F.mse_loss(recon_hand, x_obj)
         self.mse_obj_adv = 1.0 - F.mse_loss(recon_obj, x_hand)
-        self.mse_hand_obj_adv = 1.0 - F.mse_loss(recon_hand, recon_obj) / (640*480)
+        self.mse_hand_obj_adv = 1.0 - (F.mse_loss(recon_hand, recon_obj) / (640*480))
         self.adv_loss = self.mse_hand_adv + self.mse_obj_adv + self.mse_hand_obj_adv
-        self.recon_loss = 3.0*self.mse + self.adv_loss
+        self.recon_loss = self.mse + self.adv_loss
 
         self.vq_loss = torch.mean(torch.norm((emb - z_e.detach()) ** 2, 2, 1))
         self.commit_loss = torch.mean(torch.norm((emb.detach() - z_e) ** 2, 2, 1))
-        vq_vae_loss = self.vq_coef*self.vq_loss + self.commit_coef*self.commit_loss + 1.0
+        vq_vae_loss = (1.0 + self.vq_coef*self.vq_loss) + (1.0*self.commit_coef*self.commit_loss)
 
         return self.recon_loss + vq_vae_loss
 
