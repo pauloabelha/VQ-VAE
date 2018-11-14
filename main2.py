@@ -76,6 +76,8 @@ def main(args):
                               help='autoencoder variant to use: vae | vqvae')
     model_parser.add_argument('--dual', type=bool, metavar='N', default=False,
                               help='number of hidden channels')
+    model_parser.add_argument('--adversarial-loss', type=bool, metavar='N', default=False,
+                              help='number of hidden channels')
     model_parser.add_argument('--split-filename', default='', help='Dataset split filename')
     model_parser.add_argument('--batch-size', type=int, default=16, metavar='N',
                               help='input batch size for training (default: 128)')
@@ -121,6 +123,9 @@ def main(args):
                                 help='in which format to save the data')
     args = parser.parse_args(args)
     args.cuda = not args.no_cuda and torch.cuda.is_available()
+
+    if not args.dual:
+        args.adversarial_loss = False
 
     lr = args.lr or default_hyperparams[args.dataset]['lr']
     k = args.k or default_hyperparams[args.dataset]['k']
@@ -337,6 +342,7 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
     start_time = time.time()
     data_to_save = []
     outputs_to_save = []
+    num_img_to_save = 8
 
     for batch_idx, (data, label_img) in enumerate(train_loader):
         batch_num = (batch_idx + 1) * data.shape[0] * args.max_mem_batch_size
@@ -359,7 +365,7 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
         outputs_to_save.append(outputs[0][0, 0:3, :, :])
 
         if batch_completed:
-            num_img_to_save = 8
+
             log_this_batch = int((batch_num / args.batch_size)) % log_interval == 0
             if log_this_batch:
                 #vis.plot_image(label_img.cpu().numpy().reshape((640, 480)))
@@ -420,7 +426,10 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
                 data_to_save.append(data[0, 0:3, :, :])
                 outputs_to_save.append(outputs[0][0, 0:3, :, :])
 
-        loss = model.loss_function(label_img, *outputs)
+        if args.adversarial_loss:
+            loss = model.loss_function_adversarial(label_img, *outputs)
+        else:
+            loss = model.loss_function(label_img, *outputs)
         loss.backward()
 
 
@@ -463,10 +472,25 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
             epoch_losses[key] /= (len(train_loader.dataset) / train_loader.batch_size)
     loss_string = '\t'.join(['{}: {:.6f}'.format(k, v) for k, v in epoch_losses.items()])
     logging.info('====> Epoch: {} {}'.format(epoch, loss_string))
-    if len(outputs) > 3:
-        model.print_atom_hist(outputs[3])
+
+    # save result images for current epoch
+    data_to_save = data_to_save[-num_img_to_save:]
+    data_to_save = torch.stack(data_to_save).permute(0, 1, 3, 2).cpu()
+    data_to_save *= train_loader.dataset.normalise_const_max_depth
+    outputs_to_save = outputs_to_save[-num_img_to_save:]
+    outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu().detach()
+    outputs_to_save *= train_loader.dataset.normalise_const_max_depth
+    save_reconstructed_images(data_to_save,
+                                  epoch,
+                                  outputs_to_save,
+                                  save_path,
+                                  'reconstruction_train_ycb_epoch_' + str(epoch),
+                                  dual=args.dual)
+    del data_to_save
+    del outputs_to_save
 
     return epoch_losses
+
 
 
 

@@ -360,6 +360,10 @@ class VQ_CVAE(nn.Module):
     def __init__(self, d, k=10, bn=True, vq_coef=1, commit_coef=0.5, num_channels_in=3, num_channels_out=3, **kwargs):
         super(VQ_CVAE, self).__init__()
 
+        self.mse_hand_adv = 0
+        self.mse_obj_adv = 0
+        self.recon_loss = 0
+
         self.encoder = nn.Sequential(
             nn.Conv2d(num_channels_in, d, kernel_size=4, stride=2, padding=1),
             nn.BatchNorm2d(d),
@@ -428,26 +432,32 @@ class VQ_CVAE(nn.Module):
         self.vq_loss = torch.mean(torch.norm((emb - z_e.detach()) ** 2, 2, 1))
         self.commit_loss = torch.mean(torch.norm((emb.detach() - z_e) ** 2, 2, 1))
 
-        #print('----------TRUE X---------------')
-        #print(np.min(x.cpu().numpy()))
-        #print(np.max(x.cpu().numpy()))
-        #print(np.mean(x.cpu().numpy()))
-        #print(np.std(x.cpu().numpy()))
-        #print('----------DECODED    X---------------')
-        #print(np.min(recon_x.cpu().detach().numpy()))
-        #print(np.max(recon_x.cpu().detach().numpy()))
-        #print(np.mean(recon_x.cpu().detach().numpy()))
-        #print(np.std(recon_x.cpu().detach().numpy()))
-        #print('----------LOSSES   ------------------')
-        #print(self.mse.item())
-        #print(self.vq_loss.item())
-        #print(self.commit_loss.item())
-        #print('**************************************')
+    def loss_function_adversarial(self, x, recon_x, z_e, emb, argmin):
+        self.mse = F.mse_loss(recon_x, x)
+        x_hand = x[:, 0, :, :]
+        x_obj = x[:, 1, :, :]
+        recon_hand = recon_x[:, 0, :, :]
+        recon_obj = recon_x[:, 1, :, :]
+        self.mse_hand_adv = F.mse_loss(recon_hand, x_obj)
+        self.mse_obj_adv = F.mse_loss(recon_obj, x_hand)
+        adv_loss = (-self.mse_hand_adv) + (-self.mse_obj_adv)
+        self.recon_loss = 2*self.mse + adv_loss + 1.0
 
-        return self.mse + self.vq_coef*self.vq_loss + self.commit_coef*self.commit_loss
+        self.vq_loss = torch.mean(torch.norm((emb - z_e.detach()) ** 2, 2, 1))
+        self.commit_loss = torch.mean(torch.norm((emb.detach() - z_e) ** 2, 2, 1))
+        vq_vae_loss = self.vq_coef*self.vq_loss + self.commit_coef*self.commit_loss
+
+        return self.recon_loss + vq_vae_loss
+
 
     def latest_losses(self):
-        return {'mse': self.mse, 'vq': self.vq_loss, 'commitment': self.commit_loss}
+        return {
+                'recon_loss': self.recon_loss,
+                'mse': self.mse,
+                'mse_hand_adv': -self.mse_hand_adv,
+                'mse_obj_adv': -self.mse_obj_adv,
+                'vq': self.vq_loss,
+                'commitment': self.commit_loss}
 
     def print_atom_hist(self, argmin):
 
