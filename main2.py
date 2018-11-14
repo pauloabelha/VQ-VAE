@@ -375,40 +375,10 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
                 data_to_save = data_to_save[-num_img_to_save:]
                 data_to_save = torch.stack(data_to_save).permute(0, 1, 3, 2).cpu()
                 data_to_save *= train_loader.dataset.normalise_const_max_depth
-                data_to_save_0_numpy = data_to_save[-1].numpy().reshape((crop_res[0], crop_res[1])).T
 
                 outputs_to_save = outputs_to_save[-num_img_to_save:]
                 outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu().detach()
                 outputs_to_save *= train_loader.dataset.normalise_const_max_depth
-                #outputs_to_save_0_numpy = outputs_to_save[-1].numpy().reshape((crop_res[0], crop_res[1])).T
-
-                #label_img_0_numpy = label_img.cpu().numpy()
-                #label_img_0_numpy *= train_loader.dataset.normalise_const_max_depth
-
-                #print(batch_idx + 1)
-                #print('---------------------------------------')
-                #print(np.min(data_to_save_0_numpy))
-                #print(np.max(data_to_save_0_numpy))
-                #print(np.mean(data_to_save_0_numpy))
-                #print(np.std(data_to_save_0_numpy))
-                #print('***************************************')
-                #print(np.min(label_img_0_numpy))
-                #print(np.max(label_img_0_numpy))
-                #print(np.mean(label_img_0_numpy))
-                #print(np.std(label_img_0_numpy))
-                #print('---------------------------------------')
-                #print(np.min(outputs_to_save_0_numpy))
-                #print(np.max(outputs_to_save_0_numpy))
-                #print(np.mean(outputs_to_save_0_numpy))
-                #print(np.std(outputs_to_save_0_numpy))
-                #print('***************************************')
-                #del outputs_to_save_0_numpy
-
-                #vis.plot_image(data_to_save_0_numpy)
-                #vis.show()
-                #if batch_idx % 70 == 0:
-                #    vis.plot_image(outputs_to_save_0_numpy)
-                #    vis.show()
 
                 save_reconstructed_images(data_to_save,
                                           epoch,
@@ -420,11 +390,6 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
                 del outputs_to_save
                 data_to_save = []
                 outputs_to_save = []
-
-        if (batch_idx + 1) > (len(train_loader) - args.log_num_images_to_save):
-            if(batch_idx + 1) <= len(train_loader):
-                data_to_save.append(data[0, 0:3, :, :])
-                outputs_to_save.append(outputs[0][0, 0:3, :, :])
 
         if args.adversarial_loss:
             loss = model.loss_function_adversarial(label_img, *outputs)
@@ -474,18 +439,19 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
     logging.info('====> Epoch: {} {}'.format(epoch, loss_string))
 
     # save result images for current epoch
-    data_to_save = data_to_save[-num_img_to_save:]
-    data_to_save = torch.stack(data_to_save).permute(0, 1, 3, 2).cpu()
-    data_to_save *= train_loader.dataset.normalise_const_max_depth
-    outputs_to_save = outputs_to_save[-num_img_to_save:]
-    outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu().detach()
-    outputs_to_save *= train_loader.dataset.normalise_const_max_depth
-    save_reconstructed_images(data_to_save,
-                                  epoch,
-                                  outputs_to_save,
-                                  save_path,
-                                  'reconstruction_train_ycb_epoch_' + str(epoch),
-                                  dual=args.dual)
+    if len(data_to_save) > 0:
+        data_to_save = data_to_save[-num_img_to_save:]
+        data_to_save = torch.stack(data_to_save).permute(0, 1, 3, 2).cpu()
+        data_to_save *= train_loader.dataset.normalise_const_max_depth
+        outputs_to_save = outputs_to_save[-num_img_to_save:]
+        outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu().detach()
+        outputs_to_save *= train_loader.dataset.normalise_const_max_depth
+        save_reconstructed_images(data_to_save,
+                                      epoch,
+                                      outputs_to_save,
+                                      save_path,
+                                      'reconstruction_train_ycb_epoch_' + str(epoch),
+                                      dual=args.dual)
     del data_to_save
     del outputs_to_save
 
@@ -499,6 +465,8 @@ def test_net(epoch, model, test_loader, cuda, save_path, args, log_interval):
     loss_dict = model.latest_losses()
     losses = {k + '_test': 0 for k, v in loss_dict.items()}
     i, data = None, None
+    data_to_save = []
+    outputs_to_save = []
     with torch.no_grad():
         start_time = time.time()
         for i, (data, _) in enumerate(test_loader):
@@ -506,6 +474,9 @@ def test_net(epoch, model, test_loader, cuda, save_path, args, log_interval):
             if cuda:
                 data = data.cuda()
             outputs = model(data)
+
+
+
             model.loss_function(data, *outputs)
             latest_losses = model.latest_losses()
             for key in latest_losses:
@@ -535,6 +506,7 @@ def test_net(epoch, model, test_loader, cuda, save_path, args, log_interval):
 
 
 def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval):
+    num_img_to_save = 8
     not_saved_test_images = True
     model.eval()
     loss_dict = model.latest_losses()
@@ -559,9 +531,8 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
                 label_img = label_img.cuda()
             outputs = model(data)
 
-            if (i + 1) <= args.log_num_images_to_save:
-                data_to_save.append(data[0, 0:3, :, :])
-                outputs_to_save.append(outputs[0][0, 0:3, :, :])
+            data_to_save.append(data[0, 0:3, :, :])
+            outputs_to_save.append(outputs[0][0, 0:3, :, :])
 
             model.loss_function(label_img, *outputs)
             latest_losses = model.latest_losses()
@@ -569,14 +540,25 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
                 losses[key + '_test'] += float(latest_losses[key])
             batch_num = (i + 1) * args.max_mem_batch_size
             num_processed_batches = int((batch_num / args.batch_size))
-            if not_saved_test_images and batch_num > args.log_num_images_to_save:
+
+            if i > 0 and i % 8 == 0:
+                data_to_save = data_to_save[-num_img_to_save:]
                 data_to_save = torch.stack(data_to_save).permute(0, 1, 3, 2).cpu()
-                outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu()
-                save_reconstructed_images(data_to_save, epoch, outputs_to_save, save_path,
-                                      'reconstruction_test_ycb_batch')
+                data_to_save *= test_loader.dataset.normalise_const_max_depth
+                outputs_to_save = outputs_to_save[-num_img_to_save:]
+                outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu().detach()
+                outputs_to_save *= test_loader.dataset.normalise_const_max_depth
+                save_reconstructed_images(data_to_save,
+                                          epoch,
+                                          outputs_to_save,
+                                          save_path,
+                                          'reconstruction_test_ycb',
+                                          dual=args.dual)
                 del data_to_save
                 del outputs_to_save
-                not_saved_test_images = False
+                data_to_save = []
+                outputs_to_save = []
+
             if args.dataset == 'imagenet' and i * len(data) > 1000:
                 break
             if batch_num > 0 and batch_num % args.batch_size == 0:
