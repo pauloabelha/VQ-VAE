@@ -61,22 +61,22 @@
       <usages-collector id="statistics.vcs.git.usages" />
       <usages-collector id="statistics.file.types.edit">
         <counts>
-          <entry key="Python" value="15388" />
+          <entry key="Python" value="15563" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
-          <entry key="py" value="15388" />
+          <entry key="py" value="15563" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
-          <entry key="py" value="164" />
+          <entry key="py" value="167" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
-          <entry key="Python" value="164" />
+          <entry key="Python" value="167" />
         </counts>
       </usages-collector>
     </session>
@@ -114,14 +114,23 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/main2.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="370">
-              <caret line="453" column="25" lean-forward="true" selection-start-line="453" selection-start-column="25" selection-end-line="453" selection-end-column="25" />
+            <state relative-caret-position="206">
+              <caret line="429" column="43" selection-start-line="429" selection-start-column="43" selection-end-line="429" selection-end-column="43" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/auto_encoder2.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="98">
+              <caret line="436" column="41" lean-forward="true" selection-start-line="436" selection-start-column="41" selection-end-line="436" selection-end-column="41" />
             </state>
           </provider>
         </entry>
@@ -162,11 +171,11 @@
       <find>args.dual</find>
       <find>.dual</find>
       <find>latest_losses</find>
-      <find>adversa</find>
       <find>adv</find>
       <find>recon_loss</find>
       <find>epoch</find>
       <find>num_img_to_save</find>
+      <find>adversa</find>
     </findStrings>
     <replaceStrings>
       <replace>train</replace>
@@ -411,8 +420,8 @@
       <window_info content_ui="combo" id="Project" order="2" visible="true" weight="0.24969843" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.3295964" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.38789237" />
-      <window_info anchor="bottom" id="Debug" order="3" weight="0.3071749" />
+      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.39461884" />
+      <window_info anchor="bottom" id="Debug" order="3" weight="0.34080717" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
       <window_info anchor="bottom" id="TODO" order="6" />
@@ -723,13 +732,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$USER_HOME$/Anaconda3/envs/deeplearning_env/Lib/site-packages/torch/nn/functional.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="186">
-          <caret line="1673" selection-start-line="1673" selection-end-line="1673" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/VQ_CVAE.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="255">
@@ -758,20 +760,27 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/auto_encoder2.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="104">
-          <caret line="443" column="53" selection-start-line="443" selection-start-column="53" selection-end-line="443" selection-end-column="53" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/main2.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="370">
-          <caret line="453" column="25" lean-forward="true" selection-start-line="453" selection-start-column="25" selection-end-line="453" selection-end-column="25" />
+        <state relative-caret-position="206">
+          <caret line="429" column="43" selection-start-line="429" selection-start-column="43" selection-end-line="429" selection-end-column="43" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
           </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/Anaconda3/envs/deeplearning_env/Lib/site-packages/torch/nn/functional.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="6">
+          <caret line="1704" column="4" selection-start-line="1704" selection-start-column="4" selection-end-line="1704" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/auto_encoder2.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="98">
+          <caret line="436" column="41" lean-forward="true" selection-start-line="436" selection-start-column="41" selection-end-line="436" selection-end-column="41" />
         </state>
       </provider>
     </entry>
