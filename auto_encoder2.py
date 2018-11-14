@@ -445,7 +445,7 @@ class VQ_CVAE(nn.Module):
 
         self.vq_loss = torch.mean(torch.norm((emb - z_e.detach()) ** 2, 2, 1))
         self.commit_loss = torch.mean(torch.norm((emb.detach() - z_e) ** 2, 2, 1))
-        vq_vae_loss = self.vq_coef*self.vq_loss + self.commit_coef*self.commit_loss
+        vq_vae_loss = self.vq_coef*self.vq_loss + self.commit_coef*self.commit_loss + 1.0
 
         return self.recon_loss + vq_vae_loss
 
@@ -457,7 +457,8 @@ class VQ_CVAE(nn.Module):
                 'mse_hand_adv': -self.mse_hand_adv,
                 'mse_obj_adv': -self.mse_obj_adv,
                 'vq': self.vq_loss,
-                'commitment': self.commit_loss}
+                'commitment': self.commit_loss
+        }
 
     def print_atom_hist(self, argmin):
 

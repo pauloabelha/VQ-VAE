@@ -443,8 +443,8 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
                 for key in latest_losses:
                     losses[key + '_train'] += float(latest_losses[key])
                     epoch_losses[key + '_train'] += float(latest_losses[key])
-                for key in latest_losses:
-                    losses[key + '_train'] /= log_interval
+                #for key in latest_losses:
+                #    losses[key + '_train']
                 loss_string = ' '.join(['{}: {:.6f}'.format(k, v) for k, v in losses.items()])
                 logging.info('Train Epoch: {epoch} [{batch:5d}/{total_batch} ({percent:2d}%)]   time:'
                              ' {time:3.2f}   {loss}'
