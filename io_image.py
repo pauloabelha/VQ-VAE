@@ -1,3 +1,4 @@
+import matplotlib
 from scipy import misc
 import numpy as np
 import converter as conv
@@ -77,3 +78,6 @@ def crop_image_get_labels(data, labels_colorspace, joint_ixs=range(21), crop_res
     labels_heatmaps, labels_colorspace =\
         get_labels_cropped_heatmaps(labels_colorspace, joint_ixs, crop_coords, heatmap_res=crop_res)
     return data, crop_coords, labels_heatmaps, labels_colorspace
+
+def save_image(image, filepath):
+    matplotlib.image.imsave(filepath, image)

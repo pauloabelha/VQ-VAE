@@ -74,6 +74,8 @@ def main(args):
     model_parser = parser.add_argument_group('Model Parameters')
     model_parser.add_argument('--model', default='vae', choices=['vae', 'vqvae'],
                               help='autoencoder variant to use: vae | vqvae')
+    model_parser.add_argument('--dual', type=bool, metavar='N', default=False,
+                              help='number of hidden channels')
     model_parser.add_argument('--split-filename', default='', help='Dataset split filename')
     model_parser.add_argument('--batch-size', type=int, default=16, metavar='N',
                               help='input batch size for training (default: 128)')
@@ -144,7 +146,10 @@ def main(args):
 
     models_dict = models[args.dataset]
     if args.dataset == 'fpa':
-        model = VQ_CVAE(d=hidden, k=k, num_channels_in=1, num_channels_out=1)
+        num_channels_out = 1
+        if args.dual:
+            num_channels_out = 2
+        model = VQ_CVAE(d=hidden, k=k, num_channels_in=1, num_channels_out=num_channels_out)
     elif args.dataset == 'ycb':
         model = VQ_CVAE(d=hidden, k=k, num_channels_in=num_channels_in, num_channels_out=num_channels_out)
     elif args.dataset == 'imagenet':
@@ -164,20 +169,36 @@ def main(args):
         dataset_train_dir = os.path.join(dataset_train_dir, 'train')
         dataset_test_dir = os.path.join(dataset_test_dir, 'val')
     if args.dataset == 'fpa':
-        train_loader = fpa_dataset.DataLoaderReconstruction(root_folder=args.data_dir,
-                                                      type='train', transform_color=None,
-                                                      transform_depth=dataset_transforms[args.dataset],
-                                                      batch_size=args.max_mem_batch_size,
-                                                      split_filename=args.split_filename,
-                                                      for_autoencoding=True,
-                                                            input_type="depth",)
-        test_loader = fpa_dataset.DataLoaderReconstruction(root_folder=args.data_dir,
-                                      type='test', transform_color=None,
-                                      transform_depth=dataset_transforms[args.dataset],
-                                      batch_size=args.max_mem_batch_size,
-                                      split_filename=args.split_filename,
-                                                     for_autoencoding=True,
-                                                            input_type="depth")
+        if args.dual:
+            train_loader = fpa_dataset.DataLoaderReconstructionDual(root_folder=args.data_dir,
+                                                                type='train', transform_color=None,
+                                                                transform_depth=dataset_transforms[args.dataset],
+                                                                batch_size=args.max_mem_batch_size,
+                                                                split_filename=args.split_filename,
+                                                                for_autoencoding=True,
+                                                                input_type="depth", )
+            test_loader = fpa_dataset.DataLoaderReconstructionDual(root_folder=args.data_dir,
+                                                               type='test', transform_color=None,
+                                                               transform_depth=dataset_transforms[args.dataset],
+                                                               batch_size=args.max_mem_batch_size,
+                                                               split_filename=args.split_filename,
+                                                               for_autoencoding=True,
+                                                               input_type="depth")
+        else:
+            train_loader = fpa_dataset.DataLoaderReconstruction(root_folder=args.data_dir,
+                                                          type='train', transform_color=None,
+                                                          transform_depth=dataset_transforms[args.dataset],
+                                                          batch_size=args.max_mem_batch_size,
+                                                          split_filename=args.split_filename,
+                                                          for_autoencoding=True,
+                                                                input_type="depth",)
+            test_loader = fpa_dataset.DataLoaderReconstruction(root_folder=args.data_dir,
+                                          type='test', transform_color=None,
+                                          transform_depth=dataset_transforms[args.dataset],
+                                          batch_size=args.max_mem_batch_size,
+                                          split_filename=args.split_filename,
+                                                         for_autoencoding=True,
+                                                                input_type="depth")
 
         print('Length of training dataset: {}'.format(len(train_loader.dataset)))
         print('Length of test dataset: {}'.format(len(test_loader.dataset)))
@@ -353,28 +374,29 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
                 outputs_to_save = outputs_to_save[-num_img_to_save:]
                 outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu().detach()
                 outputs_to_save *= train_loader.dataset.normalise_const_max_depth
-                outputs_to_save_0_numpy = outputs_to_save[-1].numpy().reshape((crop_res[0], crop_res[1])).T
+                #outputs_to_save_0_numpy = outputs_to_save[-1].numpy().reshape((crop_res[0], crop_res[1])).T
 
-                label_img_0_numpy = label_img.cpu().numpy()
-                label_img_0_numpy *= train_loader.dataset.normalise_const_max_depth
+                #label_img_0_numpy = label_img.cpu().numpy()
+                #label_img_0_numpy *= train_loader.dataset.normalise_const_max_depth
 
-                print(batch_idx + 1)
+                #print(batch_idx + 1)
                 #print('---------------------------------------')
                 #print(np.min(data_to_save_0_numpy))
                 #print(np.max(data_to_save_0_numpy))
                 #print(np.mean(data_to_save_0_numpy))
                 #print(np.std(data_to_save_0_numpy))
-                print('***************************************')
-                print(np.min(label_img_0_numpy))
-                print(np.max(label_img_0_numpy))
-                print(np.mean(label_img_0_numpy))
-                print(np.std(label_img_0_numpy))
-                print('---------------------------------------')
-                print(np.min(outputs_to_save_0_numpy))
-                print(np.max(outputs_to_save_0_numpy))
-                print(np.mean(outputs_to_save_0_numpy))
-                print(np.std(outputs_to_save_0_numpy))
-                print('***************************************')
+                #print('***************************************')
+                #print(np.min(label_img_0_numpy))
+                #print(np.max(label_img_0_numpy))
+                #print(np.mean(label_img_0_numpy))
+                #print(np.std(label_img_0_numpy))
+                #print('---------------------------------------')
+                #print(np.min(outputs_to_save_0_numpy))
+                #print(np.max(outputs_to_save_0_numpy))
+                #print(np.mean(outputs_to_save_0_numpy))
+                #print(np.std(outputs_to_save_0_numpy))
+                #print('***************************************')
+                #del outputs_to_save_0_numpy
 
                 #vis.plot_image(data_to_save_0_numpy)
                 #vis.show()
@@ -382,8 +404,14 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
                 #    vis.plot_image(outputs_to_save_0_numpy)
                 #    vis.show()
 
-                save_reconstructed_images(data_to_save, epoch, outputs_to_save, save_path, 'reconstruction_train_ycb_batch')
-                del outputs_to_save_0_numpy, outputs_to_save
+                save_reconstructed_images(data_to_save,
+                                          epoch,
+                                          outputs_to_save,
+                                          save_path,
+                                          'reconstruction_train_ycb_batch',
+                                          dual=args.dual)
+                del data_to_save
+                del outputs_to_save
                 data_to_save = []
                 outputs_to_save = []
 
@@ -546,12 +574,20 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
     logging.info('====> Test set losses: {}'.format(loss_string))
     return losses
 
-def save_reconstructed_images(data, epoch, outputs, save_path, name):
+def save_reconstructed_images(data, epoch, outputs, save_path, name, dual=False):
+    ''' Dual True means that the images have two channels,
+     containing different, separate depth images'''
     size = data.size()
     n = min(data.size(0), 8)
     batch_size = data.size(0)
-    comparison = torch.cat([data[:n],
-                            outputs.view(batch_size, size[1], size[2], size[3])[:n]])
+    data_tensor = data[:n]
+    if dual:
+        output_hand = outputs[:, 0, :, :].view(batch_size, 1, size[2], size[3])[:n]
+        output_obj = outputs[:, 1, :, :].view(batch_size, 1, size[2], size[3])[:n]
+        comparison = torch.cat([data_tensor, output_hand, output_obj])
+    else:
+        output_tensor = outputs.view(batch_size, size[1], size[2], size[3])[:n]
+        comparison = torch.cat([data_tensor, output_tensor])
     save_image(comparison.cpu(),
                os.path.join(save_path, name + '_' + str(epoch) + '.png'), nrow=n, normalize=True)
 

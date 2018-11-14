@@ -336,6 +336,7 @@ def create_fig():
     return plt.figure()
 
 
+
 def plot_jornet_colorspace(joints_color_orig_res, filenamebase, dataset_folder, input_img_namebase, img_res=(640, 480)):
     data = synthhands_handler._get_data(dataset_folder, filenamebase, img_res)
     fig = plot_image(data[0:3, :, :].data.numpy(), title=input_img_namebase)

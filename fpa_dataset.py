@@ -70,6 +70,19 @@ class FPADataset(Dataset):
         self.split_filename = split_filename
 
 
+    def read_unreal_depth_img(self, img_filepath, unreal_max_depth=100):
+        ''' Unreal max depth should be in cm '''
+        img = io_image.read_RGB_image(img_filepath)
+        img = img[:, :, 0] + img[:, :, 1] / 255 + img[:, :, 2] / 65025
+        # assuming img[0, 0] contains the maximum available depth in the unreal image
+        # as in Unreal I put a large cuboid at height 100 cm to calibrate the depth
+        img *= unreal_max_depth / img[0, 0]
+        # put 0 on every pixel that has max depth
+        img[np.abs(img - unreal_max_depth) < 1e-2] = 0
+        # convert to mm
+        img *= 10
+        return img
+
     def get_subpath_and_file_num(self, idx):
         idx_split = self.dataset_split[self.type][idx]
         subpath = idx_split[0]
@@ -313,11 +326,118 @@ class FPADatasetReconstruction(FPADataset):
 
         return depth_img_torch, depth_obj_img_torch
 
+class FPADatasetReconstructionDual(FPADataset):
+    gen_obj_folder = 'gen_objs/'
+    gen_hands_folder = 'gen_hands/'
+
+    unreal_max_depth = 100 # in cm (Unreal uses cm)
+    normalise_const_max_depth = 2000 # in mm
+
+    def resize2d(self, img, size):
+        return (F.adaptive_avg_pool2d(Variable(img, volatile=True), size)).data
+
+    def __init__(self, root_folder, type, input_type, split_filename='',
+                 transform_color=None, transform_depth=None, img_res=None, crop_res=None,
+                 for_autoencoding=False):
+        super(FPADatasetReconstructionDual, self).__init__(root_folder, type,
+                                                           input_type,
+                                                           transform_color=transform_color,
+                                                           transform_depth=transform_depth,
+                                                           img_res=img_res,
+                                                           split_filename=split_filename,
+                                                           for_autoencoding=for_autoencoding)
+        self.dataset_split = fpa_io.load_split_file(
+                self.root_folder, self.split_filename)
+        self.pixel_bound = 100
+
+    def __getitem__(self, idx):
+        subpath, file_num = self.get_subpath_and_file_num(idx)
+        depth_img = self.read_depth_img(subpath, file_num).astype(float)
+
+        # depth_obj_img_path = self.root_folder + self.gen_obj_folder + subpath + \
+        #                str(int(file_num)) + '_depth.jpg'
+        # depth_obj_img = fpa_io.read_depth_img(depth_obj_img_path)
+
+        # read obj img
+        depth_obj_csv_path = self.root_folder + self.gen_obj_folder + subpath + \
+                                 str(int(file_num)) + '_depth.csv'
+        img2_depth_array = np.loadtxt(open(depth_obj_csv_path, "rb"), delimiter=",")
+        depth_obj_img = img2_depth_array.T
+
+        # read hand image
+        hand_img_path = self.root_folder + self.gen_hands_folder + subpath + \
+                             'depth_' + str(int(file_num)) + '.bmp'
+        hand_img = self.read_unreal_depth_img(hand_img_path, unreal_max_depth=self.unreal_max_depth)
+
+
+        joints_filepath = self.root_folder + self.hand_pose_folder + \
+                              subpath + 'skeleton.txt'
+        hand_joints = fpa_io.read_action_joints_sequence(joints_filepath)[int(file_num)]
+        depth_img, _ = self.get_cropped_depth_img(depth_img, hand_joints)
+        depth_obj_img, _ = self.get_cropped_depth_img(depth_obj_img, hand_joints)
+        hand_img, _ = self.get_cropped_depth_img(hand_img, hand_joints)
+
+        depth_img /= self.normalise_const_max_depth
+        depth_obj_img /= self.normalise_const_max_depth
+        hand_img /= self.normalise_const_max_depth
+
+        #print(np.max(depth_img))
+        #print(np.max(depth_obj_img))
+        #print(np.max(hand_img))
+
+        #vis.plot_image(depth_img)
+        #vis.show()
+        #vis.plot_image(depth_obj_img)
+        #vis.show()
+        #vis.plot_image(hand_img)
+        #vis.show()
+
+        depth_img = depth_img.reshape((1, depth_img.shape[0], depth_img.shape[1]))
+        depth_img_torch = torch.from_numpy(depth_img).float()
+        depth_img_torch = self.resize2d(depth_img_torch, self.crop_res)
+
+        depth_obj_img = depth_obj_img.reshape((1, depth_obj_img.shape[0], depth_obj_img.shape[1]))
+        depth_obj_img_torch = torch.from_numpy(depth_obj_img).float()
+        depth_obj_img_torch = self.resize2d(depth_obj_img_torch, self.crop_res)
+
+        #obj_img_numpy = depth_obj_img_torch.numpy().astype(float).reshape(self.crop_res)
+        #vis.plot_image(obj_img_numpy)
+        #vis.show()
+
+        hand_img = hand_img.reshape((1, hand_img.shape[0], hand_img.shape[1]))
+        hand_img_torch = torch.from_numpy(hand_img).float()
+        hand_img_torch = self.resize2d(hand_img_torch, self.crop_res)
+
+        #hand_img_numpy = hand_img_torch.numpy().astype(float).reshape(self.crop_res)
+        #vis.plot_image(hand_img_numpy)
+        #vis.show()
+
+        obj_hand_img = torch.cat((hand_img_torch, depth_obj_img_torch))
+
+        return depth_img_torch, obj_hand_img
+
+
+
 def DataLoaderReconstruction(root_folder, type, input_type,
                                  transform_color=None, transform_depth=None,
                                  batch_size=4, img_res=None, split_filename='',
                                  for_autoencoding=False):
     dataset = FPADatasetReconstruction(root_folder, type, input_type,
+                                 transform_color=transform_color,
+                                 transform_depth=transform_depth,
+                                 img_res=img_res,
+                                 split_filename=split_filename,
+                                 for_autoencoding=for_autoencoding)
+    return torch.utils.data.DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=False)
+
+def DataLoaderReconstructionDual(root_folder, type, input_type,
+                                 transform_color=None, transform_depth=None,
+                                 batch_size=4, img_res=None, split_filename='',
+                                 for_autoencoding=False):
+    dataset = FPADatasetReconstructionDual(root_folder, type, input_type,
                                  transform_color=transform_color,
                                  transform_depth=transform_depth,
                                  img_res=img_res,
