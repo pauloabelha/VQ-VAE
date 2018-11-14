@@ -364,6 +364,7 @@ class VQ_CVAE(nn.Module):
         self.mse_obj_adv = 0
         self.recon_loss = 0
         self.mse_hand_obj_adv = 0
+        self.adv_loss = 0
 
         self.encoder = nn.Sequential(
             nn.Conv2d(num_channels_in, d, kernel_size=4, stride=2, padding=1),
@@ -440,11 +441,11 @@ class VQ_CVAE(nn.Module):
         x_obj = x[:, 1, :, :]
         recon_hand = recon_x[:, 0, :, :]
         recon_obj = recon_x[:, 1, :, :]
-        self.mse_hand_adv = F.mse_loss(recon_hand, x_obj)
-        self.mse_obj_adv = F.mse_loss(recon_obj, x_hand)
-        self.mse_hand_obj_adv = 0#F.mse_loss(recon_hand, recon_obj) / (640*480)
-        adv_loss = (-self.mse_hand_adv) + (-self.mse_obj_adv) + (-self.mse_hand_obj_adv)
-        self.recon_loss = 2.0*self.mse + adv_loss + 1.0
+        self.mse_hand_adv = 1.0 - F.mse_loss(recon_hand, x_obj)
+        self.mse_obj_adv = 1.0 - F.mse_loss(recon_obj, x_hand)
+        self.mse_hand_obj_adv = 1.0 - F.mse_loss(recon_hand, recon_obj) / (640*480)
+        self.adv_loss = self.mse_hand_adv + self.mse_obj_adv + self.mse_hand_obj_adv
+        self.recon_loss = 3.0*self.mse + self.adv_loss
 
         self.vq_loss = torch.mean(torch.norm((emb - z_e.detach()) ** 2, 2, 1))
         self.commit_loss = torch.mean(torch.norm((emb.detach() - z_e) ** 2, 2, 1))
@@ -456,6 +457,7 @@ class VQ_CVAE(nn.Module):
     def latest_losses(self):
         return {
                 'recon_loss': self.recon_loss,
+                'adv_loss': self.adv_loss,
                 'mse': self.mse,
                 'mse_hand_obj_adv': self.mse_hand_obj_adv,
                 'mse_hand_adv': self.mse_hand_adv,
