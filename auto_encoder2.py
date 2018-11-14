@@ -432,6 +432,7 @@ class VQ_CVAE(nn.Module):
         self.mse = F.mse_loss(recon_x, x)
         self.vq_loss = torch.mean(torch.norm((emb - z_e.detach()) ** 2, 2, 1))
         self.commit_loss = torch.mean(torch.norm((emb.detach() - z_e) ** 2, 2, 1))
+        return self.mse + self.vq_loss + self.commit_loss
 
     def loss_function_adversarial(self, x, recon_x, z_e, emb, argmin):
         self.mse = F.mse_loss(recon_x, x)
