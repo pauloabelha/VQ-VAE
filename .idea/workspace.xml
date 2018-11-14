@@ -61,12 +61,12 @@
       <usages-collector id="statistics.vcs.git.usages" />
       <usages-collector id="statistics.file.types.edit">
         <counts>
-          <entry key="Python" value="15806" />
+          <entry key="Python" value="15928" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
-          <entry key="py" value="15806" />
+          <entry key="py" value="15928" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
@@ -117,8 +117,8 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/main2.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="380">
-              <caret line="560" selection-start-line="560" selection-end-line="560" />
+            <state relative-caret-position="244">
+              <caret line="390" column="51" selection-start-line="390" selection-start-column="51" selection-end-line="390" selection-end-column="51" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -172,10 +172,10 @@
       <find>logging</find>
       <find>advers</find>
       <find>save_reconstructed_images</find>
-      <find>args.dual</find>
       <find>break</find>
       <find>data_to_save</find>
       <find>data_to_save.</find>
+      <find>args.dual</find>
     </findStrings>
     <replaceStrings>
       <replace>train</replace>
@@ -413,14 +413,15 @@
   </component>
   <component name="ToolWindowManager">
     <frame x="-8" y="-8" width="1696" height="1026" extended-state="6" />
+    <editor active="true" />
     <layout>
       <window_info id="Structure" order="0" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="1" side_tool="true" />
       <window_info content_ui="combo" id="Project" order="2" visible="true" weight="0.24969843" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" weight="0.3295964" />
-      <window_info anchor="bottom" id="Run" order="2" weight="0.39461884" />
-      <window_info active="true" anchor="bottom" id="Debug" order="3" visible="true" weight="0.34080717" />
+      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.39461884" />
+      <window_info anchor="bottom" id="Debug" order="3" weight="0.34080717" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
       <window_info anchor="bottom" id="TODO" order="6" />
@@ -448,11 +449,6 @@
           <url>file://$PROJECT_DIR$/../handy/io_image.py</url>
           <line>8</line>
           <option name="timeStamp" value="99" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/main2.py</url>
-          <line>560</line>
-          <option name="timeStamp" value="169" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
@@ -790,8 +786,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/main2.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="380">
-          <caret line="560" selection-start-line="560" selection-end-line="560" />
+        <state relative-caret-position="244">
+          <caret line="390" column="51" selection-start-line="390" selection-start-column="51" selection-end-line="390" selection-end-column="51" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
           </folding>

@@ -380,11 +380,15 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
                 outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu().detach()
                 outputs_to_save *= train_loader.dataset.normalise_const_max_depth
 
+                filename_ = 'reconstruction_train_ycb_batch'
+                if args.adversarial_loss:
+                    filename_ += '_adver'
+
                 save_reconstructed_images(data_to_save,
                                           epoch,
                                           outputs_to_save,
                                           save_path,
-                                          'reconstruction_train_ycb_batch',
+                                          filename_,
                                           dual=args.dual)
                 del data_to_save
                 del outputs_to_save
@@ -446,12 +450,17 @@ def train_ycb(epoch, model, train_loader, optimizer, cuda, log_interval, save_pa
         outputs_to_save = outputs_to_save[-num_img_to_save:]
         outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu().detach()
         outputs_to_save *= train_loader.dataset.normalise_const_max_depth
+
+        filename_ = 'reconstruction_train_ycb_batch'
+        if args.adversarial_loss:
+            filename_ += '_adver'
+
         save_reconstructed_images(data_to_save,
-                                      epoch,
-                                      outputs_to_save,
-                                      save_path,
-                                      'reconstruction_train_ycb_epoch_' + str(epoch),
-                                      dual=args.dual)
+                                  epoch,
+                                  outputs_to_save,
+                                  save_path,
+                                  filename_,
+                                  dual=args.dual)
     del data_to_save
     del outputs_to_save
 
@@ -548,11 +557,15 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
                 outputs_to_save = outputs_to_save[-num_img_to_save:]
                 outputs_to_save = torch.stack(outputs_to_save).permute(0, 1, 3, 2).cpu().detach()
                 outputs_to_save *= test_loader.dataset.normalise_const_max_depth
+                filename_ = 'reconstruction_test_ycb_batch'
+                if args.adversarial_loss:
+                    filename_ += '_adver'
+
                 save_reconstructed_images(data_to_save,
                                           epoch,
                                           outputs_to_save,
                                           save_path,
-                                          'reconstruction_test_ycb',
+                                          filename_,
                                           dual=args.dual)
                 del data_to_save
                 del outputs_to_save
