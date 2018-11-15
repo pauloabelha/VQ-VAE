@@ -61,12 +61,12 @@
       <usages-collector id="statistics.vcs.git.usages" />
       <usages-collector id="statistics.file.types.edit">
         <counts>
-          <entry key="Python" value="16056" />
+          <entry key="Python" value="16065" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
-          <entry key="py" value="16056" />
+          <entry key="py" value="16065" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
@@ -114,11 +114,11 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/main2.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="164">
-              <caret line="563" column="55" selection-start-line="563" selection-start-column="55" selection-end-line="563" selection-end-column="55" />
+            <state relative-caret-position="384">
+              <caret line="550" column="12" selection-start-line="550" selection-start-column="12" selection-end-line="550" selection-end-column="12" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
               </folding>
@@ -126,11 +126,11 @@
           </provider>
         </entry>
       </file>
-      <file pinned="false" current-in-tab="true">
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/auto_encoder2.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="338">
-              <caret line="451" column="22" selection-start-line="451" selection-start-column="22" selection-end-line="451" selection-end-column="22" />
+            <state relative-caret-position="297">
+              <caret line="456" column="28" lean-forward="true" selection-start-line="456" selection-start-column="28" selection-end-line="456" selection-end-column="28" />
             </state>
           </provider>
         </entry>
@@ -202,8 +202,8 @@
         <option value="$PROJECT_DIR$/test_fpa.py" />
         <option value="$PROJECT_DIR$/visualize.py" />
         <option value="$PROJECT_DIR$/fpa_dataset.py" />
-        <option value="$PROJECT_DIR$/main2.py" />
         <option value="$PROJECT_DIR$/auto_encoder2.py" />
+        <option value="$PROJECT_DIR$/main2.py" />
       </list>
     </option>
   </component>
@@ -777,20 +777,20 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/main2.py">
+    <entry file="file://$PROJECT_DIR$/auto_encoder2.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="164">
-          <caret line="563" column="55" selection-start-line="563" selection-start-column="55" selection-end-line="563" selection-end-column="55" />
-          <folding>
-            <element signature="e#0#10#0" expanded="true" />
-          </folding>
+        <state relative-caret-position="297">
+          <caret line="456" column="28" lean-forward="true" selection-start-line="456" selection-start-column="28" selection-end-line="456" selection-end-column="28" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/auto_encoder2.py">
+    <entry file="file://$PROJECT_DIR$/main2.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="338">
-          <caret line="451" column="22" selection-start-line="451" selection-start-column="22" selection-end-line="451" selection-end-column="22" />
+        <state relative-caret-position="384">
+          <caret line="550" column="12" selection-start-line="550" selection-start-column="12" selection-end-line="550" selection-end-column="12" />
+          <folding>
+            <element signature="e#0#10#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>

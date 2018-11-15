@@ -443,7 +443,7 @@ class VQ_CVAE(nn.Module):
         recon_obj = recon_x[:, 1, :, :]
         self.mse_hand_adv = 1.0 - F.mse_loss(recon_hand, x_obj)
         self.mse_obj_adv = 1.0 - F.mse_loss(recon_obj, x_hand)
-        self.mse_hand_obj_adv = 1.0 - (F.mse_loss(recon_hand, recon_obj) / (640*480))
+        self.mse_hand_obj_adv = 1.0# - (F.mse_loss(recon_hand, recon_obj) / (640*480))
         self.adv_loss = self.mse_hand_adv + self.mse_obj_adv + self.mse_hand_obj_adv
         self.recon_loss = self.mse + self.adv_loss
 

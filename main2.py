@@ -543,8 +543,12 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
             data_to_save.append(data[0, 0:3, :, :])
             outputs_to_save.append(outputs[0][0, 0:3, :, :])
 
-            model.loss_function(label_img, *outputs)
+            if args.adversarial_loss:
+                loss = model.loss_function_adversarial(label_img, *outputs)
+            else:
+                loss = model.loss_function(label_img, *outputs)
             latest_losses = model.latest_losses()
+            
             for key in latest_losses:
                 losses[key + '_test'] += float(latest_losses[key])
             batch_num = (i + 1) * args.max_mem_batch_size
