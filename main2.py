@@ -548,7 +548,7 @@ def test_net_ycb(epoch, model, test_loader, cuda, save_path, args, log_interval)
             else:
                 loss = model.loss_function(label_img, *outputs)
             latest_losses = model.latest_losses()
-            
+
             for key in latest_losses:
                 losses[key + '_test'] += float(latest_losses[key])
             batch_num = (i + 1) * args.max_mem_batch_size
